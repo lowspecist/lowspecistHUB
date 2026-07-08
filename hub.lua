@@ -1,6 +1,3 @@
--- lowspecistHUB v5.1 – Полная совместимость с Xeno Executor, без GetMouse, hookmetamethod, newcclosure
--- Запуск: loadstring(game:HttpGet('URL'))() – вставьте прямую ссылку на данный скрипт
-
 local Services = {
 	Players = game:GetService("Players"),
 	RunService = game:GetService("RunService"),
@@ -12,19 +9,16 @@ local Services = {
 local LocalPlayer = Services.Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Функция для безопасного выполнения, если какой-то метод может отсутствовать
 local function safeCall(func, ...)
 	local success, result = pcall(func, ...)
 	if success then return result end
 	return nil
 end
 
--- Получение gui-объекта Xeno
 local function getHui()
 	return (safeCall(gethui) or game.CoreGui)
 end
 
--- Конфигурация
 local defaultConfig = {
 	Fly = { enabled = false, speed = 50 },
 	Movement = { walkSpeed = 16, jumpPower = 50, infiniteJump = false, noclip = false },
@@ -47,7 +41,6 @@ for k, v in pairs(defaultConfig) do
 end
 getgenv().lowspecistHUB_Config = cfg
 
--- Менеджер очистки
 local CleanUp = {}
 local function RegisterCleanUp(obj)
 	table.insert(CleanUp, obj)
@@ -61,7 +54,6 @@ function DestroyAll()
 	CleanUp = {}
 end
 
--- UI элементы
 local function createToggle(parent, text, configTable, key, callback)
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -10, 0, 30)
@@ -175,7 +167,6 @@ local function createButton(parent, text, callback)
 	return btn
 end
 
--- Интерфейс
 local gui = Instance.new("ScreenGui")
 gui.Name = "lowspecistHUB"
 gui.Parent = getHui()
@@ -196,7 +187,7 @@ title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundColor3 = Color3.fromRGB(0,0,0)
 title.BackgroundTransparency = 0.5
 title.TextColor3 = Color3.fromRGB(0,200,255)
-title.Text = "lowspecistHUB v5.1 (Xeno)"
+title.Text = "lowspecistHUB v5.1"
 title.Font = Enum.Font.Code
 title.TextSize = 18
 title.Parent = mainFrame
@@ -257,9 +248,6 @@ local function switchCategory(name)
 end
 switchCategory("Movement")
 
--- ===== Функционал =====
-
--- Fly
 local flyEnabled = false
 local flyBodyGyro, flyBodyVel, flyHeartbeat
 local function startFly()
@@ -303,7 +291,6 @@ local function stopFly()
 	if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
 end
 
--- ESP
 local espDrawings = {}
 local espRenderStepName = "ESP_Update"
 local function removeESP()
@@ -382,7 +369,6 @@ local function createESP()
 	end)
 end
 
--- Chams
 local chamsHighlights = {}
 local function applyChams()
 	for _, hl in ipairs(chamsHighlights) do hl:Destroy() end
@@ -405,7 +391,6 @@ local function applyChams()
 	end
 end
 
--- Aimbot
 local aimbotActive = false
 local aimbotRenderStep = "Aimbot_Render"
 local function startAimbot()
@@ -436,7 +421,6 @@ local function startAimbot()
 			local head = target.Character.Head
 			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, head.Position), cfg.Aimbot.smooth)
 		end
-		-- Triggerbot заглушка
 	end)
 end
 local function stopAimbot()
@@ -444,7 +428,6 @@ local function stopAimbot()
 	pcall(function() Services.RunService:UnbindFromRenderStep(aimbotRenderStep) end)
 end
 
--- Player эффекты
 local function applyGodmode(enabled)
 	if enabled then
 		local function makeInvincible(char)
@@ -488,7 +471,6 @@ local function applyAntiFling(enabled)
 		RegisterCleanUp(conn)
 	end
 end
--- Click TP без Mouse: используем UserInputService и рейкаст
 local function applyClickTP(enabled)
 	if enabled then
 		local conn = Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -496,7 +478,13 @@ local function applyClickTP(enabled)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				local mousePos = Services.UserInputService:GetMouseLocation()
 				local ray = Camera:ScreenPointToRay(mousePos.X, mousePos.Y)
-				local hitPart, hitPosition = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character}, false, false)
+				local ignoreList = {}
+				if LocalPlayer.Character then
+					for _, child in ipairs(LocalPlayer.Character:GetChildren()) do
+						if child:IsA("BasePart") then table.insert(ignoreList, child) end
+					end
+				end
+				local hitPart, hitPosition = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList, false, false)
 				if hitPart then
 					local char = LocalPlayer.Character
 					if char and char:FindFirstChild("HumanoidRootPart") then
@@ -509,7 +497,6 @@ local function applyClickTP(enabled)
 	end
 end
 
--- Server
 local function rejoin()
 	Services.TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end
@@ -540,9 +527,7 @@ local function enableAntiAFK()
 	RegisterCleanUp(conn)
 end
 
--- Заполнение UI
 do
-	-- Movement
 	local movFrame = categoryFrames["Movement"]
 	createToggle(movFrame, "Fly", cfg.Fly, "enabled", function(on) if on then startFly() else stopFly() end end)
 	createSlider(movFrame, "Fly Speed", cfg.Fly, "speed", 10, 200)
@@ -576,7 +561,6 @@ do
 		RegisterCleanUp(conn)
 	end)
 
-	-- Visual
 	local visFrame = categoryFrames["Visual"]
 	createToggle(visFrame, "ESP Master", cfg.ESP, "enabled", function(on) createESP() end)
 	createToggle(visFrame, "Box", cfg.ESP, "box", function() createESP() end)
@@ -587,34 +571,30 @@ do
 	createToggle(visFrame, "Chams", cfg.ESP, "chams", function() applyChams() end)
 	createToggle(visFrame, "Team Check", cfg.ESP, "teamCheck", function() createESP(); applyChams() end)
 
-	-- Combat
 	local combatFrame = categoryFrames["Combat"]
 	createToggle(combatFrame, "Aimbot", cfg.Aimbot, "enabled", function(on) if on then startAimbot() else stopAimbot() end end)
 	createSlider(combatFrame, "FOV", cfg.Aimbot, "fov", 10, 360)
 	createSlider(combatFrame, "Smooth", cfg.Aimbot, "smooth", 0.01, 1)
 	createToggle(combatFrame, "Triggerbot", cfg.Triggerbot, "enabled", function(on) startAimbot() end)
 
-	-- Player
 	local playerFrame = categoryFrames["Player"]
 	createToggle(playerFrame, "Godmode", cfg.Player, "godmode", applyGodmode)
 	createToggle(playerFrame, "Invisibility", cfg.Player, "invisibility", applyInvisibility)
 	createToggle(playerFrame, "Anti-Fling", cfg.Player, "antiFling", applyAntiFling)
 	createToggle(playerFrame, "Click TP", cfg.Player, "clickTP", applyClickTP)
 
-	-- Server
 	local servFrame = categoryFrames["Server"]
 	createButton(servFrame, "Rejoin", rejoin)
 	createButton(servFrame, "Server Hop", serverHop)
 	createToggle(servFrame, "Anti-AFK", cfg.Server, "antiAFK", function(on) if on then enableAntiAFK() end end)
 
-	-- Admin
 	local adminFrame = categoryFrames["Admin"]
 	local cmdBox = Instance.new("TextBox")
 	cmdBox.Size = UDim2.new(1, -10, 0, 30)
 	cmdBox.Position = UDim2.new(0, 5, 0, 10)
 	cmdBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
 	cmdBox.TextColor3 = Color3.fromRGB(255,255,255)
-	cmdBox.PlaceholderText = "cmd (rejoin, print текст)"
+	cmdBox.PlaceholderText = "cmd (rejoin, print ...)"
 	cmdBox.Font = Enum.Font.Code
 	cmdBox.TextSize = 14
 	cmdBox.Parent = adminFrame
@@ -623,16 +603,15 @@ do
 			local cmd = cmdBox.Text
 			if cmd == "rejoin" then rejoin()
 			elseif cmd:sub(1,5) == "print" then print(cmd:sub(7))
-			else print("Неизвестная команда: "..cmd)
+			else print("Unknown: "..cmd)
 			end
 			cmdBox.Text = ""
 		end
 	end)
 
-	-- Extra
 	local extraFrame = categoryFrames["Extra"]
 	createButton(extraFrame, "Save Settings", function()
-		print("Настройки сохранены в getgenv().lowspecistHUB_Config")
+		print("Saved to getgenv().lowspecistHUB_Config")
 	end)
 	createButton(extraFrame, "Load Settings", function() end)
 	createToggle(extraFrame, "Performance Mode", cfg.Performance, "mode", function(on)
@@ -641,7 +620,6 @@ do
 	end)
 end
 
--- Очистка при переподключении
 LocalPlayer.OnTeleport:Connect(function()
 	DestroyAll()
 	stopFly()
@@ -651,4 +629,4 @@ LocalPlayer.OnTeleport:Connect(function()
 	chamsHighlights = {}
 end)
 
-print("lowspecistHUB v5.1 загружен. Xeno совместимость обеспечена.")
+print("lowspecistHUB v5.1 loaded")
