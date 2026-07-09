@@ -1,3 +1,6 @@
+-- lowspecistHUB v4pro – улучшенный UI, draggable, закрытие по RShift, кнопка Close
+-- Полная совместимость с Xeno Executor
+
 local Services = {
 	Players = game:GetService("Players"),
 	RunService = game:GetService("RunService"),
@@ -54,6 +57,7 @@ function DestroyAll()
 	CleanUp = {}
 end
 
+-- UI элементы
 local function createToggle(parent, text, configTable, key, callback)
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -10, 0, 30)
@@ -167,71 +171,136 @@ local function createButton(parent, text, callback)
 	return btn
 end
 
+-- Создание GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "lowspecistHUB"
 gui.Parent = getHui()
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Enabled = true
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 600, 0, 400)
 mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 mainFrame.BorderSizePixel = 0
-mainFrame.BackgroundTransparency = 0.15
+mainFrame.BackgroundTransparency = 0.1
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = gui
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundColor3 = Color3.fromRGB(0,0,0)
-title.BackgroundTransparency = 0.5
-title.TextColor3 = Color3.fromRGB(0,200,255)
-title.Text = "lowspecistHUB v5.1"
-title.Font = Enum.Font.Code
-title.TextSize = 18
-title.Parent = mainFrame
+-- Заголовок с кнопкой закрытия и перетаскиванием
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+titleBar.BackgroundTransparency = 0.4
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
 
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -30, 1, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(0,200,255)
+title.Text = "lowspecistHUB v4pro"
+title.Font = Enum.Font.Code
+title.TextSize = 16
+title.Parent = titleBar
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 1, 0)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 16
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+closeBtn.MouseButton1Click:Connect(function()
+	gui.Enabled = false
+end)
+
+-- Перетаскивание окна
+local draggingWindow = false
+local dragStart, frameStart
+titleBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingWindow = true
+		dragStart = input.Position
+		frameStart = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				draggingWindow = false
+			end
+		end)
+	end
+end)
+Services.UserInputService.InputChanged:Connect(function(input)
+	if draggingWindow and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
+	end
+end)
+
+-- Правая панель категорий
 local sidePanel = Instance.new("ScrollingFrame")
-sidePanel.Size = UDim2.new(0, 120, 1, -30)
+sidePanel.Size = UDim2.new(0, 130, 1, -30)
 sidePanel.Position = UDim2.new(0, 0, 0, 30)
 sidePanel.BackgroundColor3 = Color3.fromRGB(15,15,15)
 sidePanel.BorderSizePixel = 0
 sidePanel.ScrollBarThickness = 4
-sidePanel.CanvasSize = UDim2.new(0,0,0,250)
+sidePanel.CanvasSize = UDim2.new(0,0,0,0)
 sidePanel.Parent = mainFrame
 
+local sideLayout = Instance.new("UIListLayout")
+sideLayout.Parent = sidePanel
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+sideLayout.Padding = UDim.new(0,2)
+
+-- Контентная область
 local contentContainer = Instance.new("ScrollingFrame")
-contentContainer.Size = UDim2.new(1, -120, 1, -30)
-contentContainer.Position = UDim2.new(0, 120, 0, 30)
+contentContainer.Size = UDim2.new(1, -130, 1, -30)
+contentContainer.Position = UDim2.new(0, 130, 0, 30)
 contentContainer.BackgroundColor3 = Color3.fromRGB(25,25,25)
 contentContainer.BorderSizePixel = 0
 contentContainer.ScrollBarThickness = 4
 contentContainer.CanvasSize = UDim2.new(0,0,0,0)
 contentContainer.Parent = mainFrame
 
+local contentLayout = Instance.new("UIListLayout")
+contentLayout.Parent = contentContainer
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+contentLayout.Padding = UDim.new(0,5)
+contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	contentContainer.CanvasSize = UDim2.new(0,0,0,contentLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Категории и фреймы
 local categories = {"Movement", "Visual", "Combat", "Player", "Server", "Admin", "Extra"}
 local categoryButtons = {}
 local categoryFrames = {}
 
 for i, cat in ipairs(categories) do
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 30)
-	btn.Position = UDim2.new(0, 0, 0, (i-1)*30)
+	btn.Size = UDim2.new(1, -4, 0, 30)
 	btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
 	btn.TextColor3 = Color3.fromRGB(255,255,255)
 	btn.Text = cat
 	btn.Font = Enum.Font.SourceSans
 	btn.TextSize = 14
 	btn.BorderSizePixel = 0
+	btn.LayoutOrder = i
 	btn.Parent = sidePanel
 	table.insert(categoryButtons, {button = btn, category = cat})
 
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -10, 1, 0)
+	frame.Size = UDim2.new(1, -20, 0, 0)
 	frame.BackgroundTransparency = 1
 	frame.Visible = false
+	frame.LayoutOrder = i
 	frame.Parent = contentContainer
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0,5)
+	padding.Parent = frame
 	categoryFrames[cat] = frame
 end
 
@@ -248,6 +317,16 @@ local function switchCategory(name)
 end
 switchCategory("Movement")
 
+-- Закрытие по RightShift
+Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.RightShift then
+		gui.Enabled = not gui.Enabled
+	end
+end)
+
+-- Модули функционала (те же, что в v5.1, без изменений)
+-- Fly
 local flyEnabled = false
 local flyBodyGyro, flyBodyVel, flyHeartbeat
 local function startFly()
@@ -291,6 +370,7 @@ local function stopFly()
 	if char and char:FindFirstChild("Humanoid") then char.Humanoid.PlatformStand = false end
 end
 
+-- ESP
 local espDrawings = {}
 local espRenderStepName = "ESP_Update"
 local function removeESP()
@@ -369,6 +449,7 @@ local function createESP()
 	end)
 end
 
+-- Chams
 local chamsHighlights = {}
 local function applyChams()
 	for _, hl in ipairs(chamsHighlights) do hl:Destroy() end
@@ -391,6 +472,7 @@ local function applyChams()
 	end
 end
 
+-- Aimbot
 local aimbotActive = false
 local aimbotRenderStep = "Aimbot_Render"
 local function startAimbot()
@@ -428,6 +510,7 @@ local function stopAimbot()
 	pcall(function() Services.RunService:UnbindFromRenderStep(aimbotRenderStep) end)
 end
 
+-- Player effects
 local function applyGodmode(enabled)
 	if enabled then
 		local function makeInvincible(char)
@@ -497,6 +580,7 @@ local function applyClickTP(enabled)
 	end
 end
 
+-- Server functions
 local function rejoin()
 	Services.TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end
@@ -527,6 +611,7 @@ local function enableAntiAFK()
 	RegisterCleanUp(conn)
 end
 
+-- Заполнение категорий
 do
 	local movFrame = categoryFrames["Movement"]
 	createToggle(movFrame, "Fly", cfg.Fly, "enabled", function(on) if on then startFly() else stopFly() end end)
@@ -591,7 +676,7 @@ do
 	local adminFrame = categoryFrames["Admin"]
 	local cmdBox = Instance.new("TextBox")
 	cmdBox.Size = UDim2.new(1, -10, 0, 30)
-	cmdBox.Position = UDim2.new(0, 5, 0, 10)
+	cmdBox.Position = UDim2.new(0, 5, 0, 5)
 	cmdBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
 	cmdBox.TextColor3 = Color3.fromRGB(255,255,255)
 	cmdBox.PlaceholderText = "cmd (rejoin, print ...)"
@@ -629,4 +714,4 @@ LocalPlayer.OnTeleport:Connect(function()
 	chamsHighlights = {}
 end)
 
-print("lowspecistHUB v5.1 loaded")
+print("lowspecistHUB v4pro loaded")
