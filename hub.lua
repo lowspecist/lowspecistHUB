@@ -94,9 +94,9 @@ local function createToggle(parent, text, configTable, key, callback)
 	button.MouseButton1Click:Connect(function()
 		configTable[key] = not configTable[key]
 		updateButton()
-		if callback then callback(configTable[key]) end
+		if callback then pcall(callback, configTable[key]) end
 	end)
-	if callback then callback(configTable[key]) end
+	pcall(function() if callback then callback(configTable[key]) end end)
 	return frame
 end
 
@@ -158,7 +158,7 @@ local function createSlider(parent, text, configTable, key, min, max, callback)
 			updateSlider({Position = Vector2.new(input.Position.X, input.Position.Y)})
 		end
 	end)
-	if callback then callback(value) end
+	pcall(function() if callback then callback(value) end end)
 	return frame
 end
 
@@ -272,13 +272,7 @@ contentContainer.CanvasSize = UDim2.new(0,0,0,0)
 contentContainer.ClipsDescendants = true
 contentContainer.Parent = mainFrame
 
-local contentLayout = Instance.new("UIListLayout")
-contentLayout.Parent = contentContainer
-contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-contentLayout.Padding = UDim.new(0,5)
-contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	contentContainer.CanvasSize = UDim2.new(0,0,0,contentLayout.AbsoluteContentSize.Y + 10)
-end)
+-- contentCanvas sized manually per visible tab
 
 -- Категории и фреймы
 local categories = {"Movement", "Visual", "Combat", "Player", "Server", "Admin", "Extra"}
@@ -302,15 +296,15 @@ for i, cat in ipairs(categories) do
 	end)
 
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -20, 0, 0)
-	frame.AutomaticSize = Enum.AutomaticSize.Y
+	frame.Size = UDim2.new(1, -10, 1, 0)
+	frame.Position = UDim2.new(0, 5, 0, 0)
 	frame.BackgroundTransparency = 1
 	frame.Visible = false
-	frame.LayoutOrder = i
 	frame.Parent = contentContainer
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0,5)
-	padding.Parent = frame
+	local frameLayout = Instance.new("UIListLayout")
+	frameLayout.Parent = frame
+	frameLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	frameLayout.Padding = UDim.new(0,3)
 	categoryFrames[cat] = frame
 end
 
@@ -324,8 +318,27 @@ local function switchCategory(name)
 	for cat, frame in pairs(categoryFrames) do
 		frame.Visible = (cat == name)
 	end
+	-- update canvas size to match visible content
+	task.defer(function()
+		local visibleFrame = categoryFrames[name]
+		if visibleFrame then
+			local layout = visibleFrame:FindFirstChildOfClass("UIListLayout")
+			if layout then
+				contentContainer.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+			end
+		end
+	end)
 end
 switchCategory("Movement")
+
+-- Kategori test
+pcall(function()
+	for cat, frame in pairs(categoryFrames) do
+		if cat ~= "Movement" then
+			frame.Visible = false
+		end
+	end
+end)
 
 -- Закрытие по RightShift или X
 Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
