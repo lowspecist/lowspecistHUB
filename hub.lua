@@ -648,21 +648,32 @@ do
 	createSlider(pf,"FOV Value",cfg.Player,"fovValue",50,120,function(val) if cfg.Player.fovChanger then Camera.FieldOfView=val end end)
 
 	-- ADMIN COMMANDS
-	local af=categoryFrames["Admin"] or categoryFrames["Extra"] -- Admin kategorisi yoksa Extra'ya ekle
+	local af=categoryFrames["Admin"] or categoryFrames["Extra"]
+	-- Komut listesi
+	local cmdHelp=Instance.new("TextLabel")
+	cmdHelp.Size=UDim2.new(1,-10,0,60); cmdHelp.BackgroundColor3=theme.inputBg; cmdHelp.TextColor3=theme.textDim
+	cmdHelp.Text="Komutlar: fly|noclip|esp|aimbot|god|speed <n>|jump <n>|rejoin|bright|spin|3rd|gravity <n>|help"
+	cmdHelp.Font=Enum.Font.Code; cmdHelp.TextSize=10; cmdHelp.TextWrapped=true; cmdHelp.TextYAlignment=Enum.TextYAlignment.Top; cmdHelp.Parent=ef
 	local cmdBox=Instance.new("TextBox")
-	cmdBox.Size=UDim2.new(1,-10,0,30); cmdBox.BackgroundColor3=theme.inputBg; cmdBox.TextColor3=theme.text
-	cmdBox.PlaceholderText="cmd: fly|noclip|esp|aimbot|god|speed|jump|rejoin|bright"
-	cmdBox.Font=Enum.Font.Code; cmdBox.TextSize=11; cmdBox.ClearTextOnFocus=true; cmdBox.Parent=ef
+	cmdBox.Size=UDim2.new(1,-10,0,30); cmdBox.Position=UDim2.new(0,0,0,65); cmdBox.BackgroundColor3=theme.inputBg; cmdBox.TextColor3=theme.text
+	cmdBox.PlaceholderText="komut yaz..."
+	cmdBox.Font=Enum.Font.Code; cmdBox.TextSize=12; cmdBox.ClearTextOnFocus=true; cmdBox.Parent=ef
 	cmdBox.FocusLost:Connect(function(ep)
 		if not ep then return end
 		local txt=cmdBox.Text:lower():gsub("^%s+",""):gsub("%s+$","")
-		if txt=="fly" then cfg.Fly.enabled=not cfg.Fly.enabled; if cfg.Fly.enabled then startFly() else stopFly() end; notify("Fly: "..tostring(cfg.Fly.enabled),1)
+		if txt=="help" then
+			cmdHelp.Text="fly|noclip|esp|aimbot|god|speed <n>|jump <n>|gravity <n>|rejoin|bright|spin|3rd|chams|tracers|skeleton"
+		elseif txt=="fly" then cfg.Fly.enabled=not cfg.Fly.enabled; if cfg.Fly.enabled then startFly() else stopFly() end; notify("Fly: "..tostring(cfg.Fly.enabled),1)
 		elseif txt=="noclip" then cfg.Movement.noclip=not cfg.Movement.noclip; if cfg.Movement.noclip then noclipConn=RunService.Stepped:Connect(function() local c=LocalPlayer.Character; if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end end); regConn(noclipConn) else if noclipConn then noclipConn:Disconnect(); noclipConn=nil end end; notify("NoClip: "..tostring(cfg.Movement.noclip),1)
 		elseif txt=="esp" then cfg.ESP.enabled=not cfg.ESP.enabled; createESP(); notify("ESP: "..tostring(cfg.ESP.enabled),1)
 		elseif txt=="aimbot" then cfg.Aimbot.enabled=not cfg.Aimbot.enabled; if cfg.Aimbot.enabled then startAimbot() else stopAimbot() end; notify("Aimbot: "..tostring(cfg.Aimbot.enabled),1)
 		elseif txt=="god" then cfg.Player.godmode=not cfg.Player.godmode; applyGodmode(cfg.Player.godmode); notify("Godmode: "..tostring(cfg.Player.godmode),1)
+		elseif txt=="chams" then cfg.ESP.chams=not cfg.ESP.chams; applyChams(); notify("Chams: "..tostring(cfg.ESP.chams),1)
+		elseif txt=="tracers" then cfg.ESP.tracers=not cfg.ESP.tracers; createESP(); notify("Tracers: "..tostring(cfg.ESP.tracers),1)
+		elseif txt=="skeleton" then cfg.ESP.skeleton=not cfg.ESP.skeleton; createESP(); notify("Skeleton: "..tostring(cfg.ESP.skeleton),1)
 		elseif txt:sub(1,6)=="speed " then local v=tonumber(txt:sub(7)); if v then cfg.Movement.walkSpeed=v; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.WalkSpeed=v end; notify("Speed: "..v,1) end
 		elseif txt:sub(1,5)=="jump " then local v=tonumber(txt:sub(6)); if v then cfg.Movement.jumpPower=v; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.JumpPower=v end; notify("Jump: "..v,1) end
+		elseif txt:sub(1,8)=="gravity " then local v=tonumber(txt:sub(9)); if v then cfg.Movement.gravity=v; Workspace.Gravity=v; notify("Gravity: "..v,1) end
 		elseif txt=="rejoin" then TeleportService:Teleport(game.PlaceId,LocalPlayer)
 		elseif txt=="bright" then cfg.Server.fullbright=not cfg.Server.fullbright; enableFullbright(cfg.Server.fullbright); notify("Fullbright: "..tostring(cfg.Server.fullbright),1)
 		elseif txt=="spin" then cfg.Movement.spinBot=not cfg.Movement.spinBot; if cfg.Movement.spinBot then spinAngle=0; spinConn=RunService.Heartbeat:Connect(function(dt) spinAngle=spinAngle+dt*360; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("HumanoidRootPart") then ch.HumanoidRootPart.CFrame=CFrame.new(ch.HumanoidRootPart.Position)*CFrame.Angles(0,math.rad(spinAngle),0) end end); regConn(spinConn) else if spinConn then spinConn:Disconnect(); spinConn=nil end end; notify("Spin: "..tostring(cfg.Movement.spinBot),1)
