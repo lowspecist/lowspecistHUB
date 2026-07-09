@@ -101,9 +101,9 @@ loadingGui:Destroy()
 local defaultConfig = {
 	Fly = { enabled = false, speed = 50 },
 	Movement = { walkSpeed = 16, jumpPower = 50, jumpHeight = false, infiniteJump = false, noclip = false, gravity = 196.2, spinBot = false, speedForce = false },
-	ESP = { enabled = false, box = true, boxStyle = "Corner", name = true, health = true, distance = true, tracers = false, snaplines = false, skeleton = false, headDot = false, chams = false, teamCheck = false, crosshair = false, throttle = false },
-	Aimbot = { enabled = false, fov = 100, smooth = 0.2, showFOV = false, teamCheck = false, prediction = false },
-	Player = { thirdPerson = false, fovChanger = false, godmode = false, panicKey = false },
+	ESP = { enabled = false, box = true, boxStyle = "Corner", name = true, health = true, distance = true, tracers = false, snaplines = false, skeleton = false, headDot = false, chams = false, teamCheck = false, crosshair = false, throttle = false, boxColor = "accent", nameColor = "white" },
+	Aimbot = { enabled = false, fov = 100, smooth = 0.2, showFOV = false, teamCheck = false, prediction = false, bindKey = "MouseButton2" },
+	Player = { thirdPerson = false, thirdPersonDist = 12, fovChanger = false, fovValue = 70, godmode = false },
 	Server = { antiAFK = false, fullbright = false },
 	Performance = { mode = false },
 }
@@ -164,6 +164,24 @@ local function notify(text, duration)
 		task.wait(0.3)
 		n:Destroy()
 	end)
+end
+
+-- ===== Color Map =====
+local colorMap = {
+	accent = theme.accent,
+	red = Color3.fromRGB(255, 0, 0),
+	green = Color3.fromRGB(0, 255, 0),
+	blue = Color3.fromRGB(0, 100, 255),
+	yellow = Color3.fromRGB(255, 255, 0),
+	purple = Color3.fromRGB(180, 0, 255),
+	white = Color3.fromRGB(255, 255, 255),
+	black = Color3.fromRGB(0, 0, 0),
+	cyan = Color3.fromRGB(0, 255, 255),
+	pink = Color3.fromRGB(255, 100, 200),
+	orange = Color3.fromRGB(255, 165, 0),
+}
+local function getESPColor(key)
+	return colorMap[cfg.ESP[key]] or theme.accent
 end
 
 -- ===== UI Theme =====
@@ -353,12 +371,12 @@ local function createESP()
 								local sw=boxH/2; local cs=math.max(sw*0.2,4)
 								local corners={{Vector2.new(hp.X-sw/2,hp.Y),Vector2.new(hp.X-sw/2+cs,hp.Y),Vector2.new(hp.X-sw/2,hp.Y+cs)},{Vector2.new(hp.X+sw/2,hp.Y),Vector2.new(hp.X+sw/2-cs,hp.Y),Vector2.new(hp.X+sw/2,hp.Y+cs)},{Vector2.new(hp.X-sw/2,hp.Y+boxH),Vector2.new(hp.X-sw/2+cs,hp.Y+boxH),Vector2.new(hp.X-sw/2,hp.Y+boxH-cs)},{Vector2.new(hp.X+sw/2,hp.Y+boxH),Vector2.new(hp.X+sw/2-cs,hp.Y+boxH),Vector2.new(hp.X+sw/2,hp.Y+boxH-cs)}}
 								for _,c in ipairs(corners) do
-									local ln=safeDrawing("Line"); if ln then ln.Visible=true; ln.Color=theme.accent; ln.Thickness=2; ln.From=c[1]; ln.To=c[2]; table.insert(espDrawings,ln) end
-									local ln2=safeDrawing("Line"); if ln2 then ln2.Visible=true; ln2.Color=theme.accent; ln2.Thickness=2; ln2.From=c[1]; ln2.To=c[3]; table.insert(espDrawings,ln2) end
+									local ln=safeDrawing("Line"); if ln then ln.Visible=true; ln.Color=getESPColor("boxColor"); ln.Thickness=2; ln.From=c[1]; ln.To=c[2]; table.insert(espDrawings,ln) end
+									local ln2=safeDrawing("Line"); if ln2 then ln2.Visible=true; ln2.Color=getESPColor("boxColor"); ln2.Thickness=2; ln2.From=c[1]; ln2.To=c[3]; table.insert(espDrawings,ln2) end
 								end
-							else local bx=safeDrawing("Square"); if bx then bx.Visible=true; bx.Color=theme.accent; bx.Thickness=1; bx.Filled=false; bx.Position=Vector2.new(hp.X-boxH/4+jitter(),hp.Y+jitter()); bx.Size=Vector2.new(boxH/2,boxH); table.insert(espDrawings,bx) end end
+							else local bx=safeDrawing("Square"); if bx then bx.Visible=true; bx.Color=getESPColor("boxColor"); bx.Thickness=1; bx.Filled=false; bx.Position=Vector2.new(hp.X-boxH/4+jitter(),hp.Y+jitter()); bx.Size=Vector2.new(boxH/2,boxH); table.insert(espDrawings,bx) end end
 						end
-						if cfg.ESP.name then local nm=safeDrawing("Text"); if nm then nm.Visible=true; nm.Color=Color3.fromRGB(255,255,255); nm.Center=true; nm.Outline=true; nm.Size=14; nm.Position=Vector2.new(hp.X+jitter(),hp.Y-12); nm.Text=p.Name; table.insert(espDrawings,nm) end end
+						if cfg.ESP.name then local nm=safeDrawing("Text"); if nm then nm.Visible=true; nm.Color=getESPColor("nameColor"); nm.Center=true; nm.Outline=true; nm.Size=14; nm.Position=Vector2.new(hp.X+jitter(),hp.Y-12); nm.Text=p.Name; table.insert(espDrawings,nm) end end
 						if cfg.ESP.health then local hm=ch.Humanoid; if hm.MaxHealth>0 then local hpPct=hm.Health/hm.MaxHealth; local hbBg=safeDrawing("Square"); if hbBg then hbBg.Filled=true; hbBg.Position=Vector2.new(hp.X-boxH/2-6,hp.Y); hbBg.Size=Vector2.new(3,boxH); hbBg.Color=Color3.fromRGB(0,0,0); table.insert(espDrawings,hbBg) end; local hb=safeDrawing("Square"); if hb then hb.Filled=true; hb.Position=Vector2.new(hp.X-boxH/2-6,hp.Y+boxH*(1-hpPct)); hb.Size=Vector2.new(3,boxH*hpPct); hb.Color=Color3.fromRGB(255*(1-hpPct),255*hpPct,0); table.insert(espDrawings,hb) end end end
 						if cfg.ESP.distance then local dd=safeDrawing("Text"); if dd then dd.Visible=true; dd.Color=theme.textDim; dd.Center=true; dd.Size=12; local dist=myRoot and math.floor((myRoot.Position-ch.HumanoidRootPart.Position).Magnitude) or 0; dd.Position=Vector2.new(hp.X,hp.Y+boxH+4); dd.Text=dist.."m"; table.insert(espDrawings,dd) end end
 						if cfg.ESP.tracers then local tr=safeDrawing("Line"); if tr then tr.Visible=true; tr.Color=theme.accent; tr.Thickness=1; local sm=myRoot and Camera:WorldToViewportPoint(myRoot.Position); local st=Camera:WorldToViewportPoint(ch.HumanoidRootPart.Position); if sm and sm.Z>0 and st.Z>0 then tr.From=Vector2.new(sm.X,sm.Y); tr.To=Vector2.new(st.X,st.Y) end; table.insert(espDrawings,tr) end end
@@ -410,6 +428,20 @@ Players.PlayerRemoving:Connect(function()
 end)
 
 -- ===== AIMBOT =====
+local aimbotHolding = false
+-- Bind key detection
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.UserInputType.Name == cfg.Aimbot.bindKey or input.KeyCode.Name == cfg.Aimbot.bindKey then
+		aimbotHolding = true
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType.Name == cfg.Aimbot.bindKey or input.KeyCode.Name == cfg.Aimbot.bindKey then
+		aimbotHolding = false
+	end
+end)
+
 local function startAimbot()
 	if aimbotActive then return end; aimbotActive=true
 	if cfg.Aimbot.showFOV then fovCircle=safeDrawing("Circle"); if fovCircle then fovCircle.Visible=true; fovCircle.Color=theme.accent; fovCircle.Thickness=1; fovCircle.Filled=false; fovCircle.Radius=cfg.Aimbot.fov; fovCircle.Position=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2) end end
@@ -418,6 +450,7 @@ local function startAimbot()
 			if fovCircle then fovCircle.Radius=cfg.Aimbot.fov; fovCircle.Position=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2) end
 			if cfg.ESP.crosshair then updateCrosshair() end
 			if not cfg.Aimbot.enabled then return end
+			if not aimbotHolding then return end -- Sadece tuşa basılıyken çalış
 			local myRoot=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 			if not myRoot then return end
 			local myTeam=LocalPlayer.Team; local best, bestDist=nil, cfg.Aimbot.fov
@@ -604,6 +637,39 @@ do
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end; notify("Config yüklendi",1) end end end)
 	createToggle(ef,"Performance Mode",cfg.Performance,"mode",function(on) pcall(function() local s=UserSettings():GetService("UserGameSettings"); s.RenderingQualityLevel=on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21 end) end)
 	createButton(ef,"Destroy GUI",function() guiDestroyed=true; disableAllFeatures(); cleanConns(); stopAimbot(); removeESP(); for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; gui:Destroy() end)
+
+	-- ESP COLORS
+	createDropdown(vf,"Box Color",{"accent","red","green","blue","yellow","purple","white","cyan","pink","orange"},cfg.ESP,"boxColor",function() createESP() end)
+	createDropdown(vf,"Name Color",{"white","red","green","blue","yellow","purple","cyan","pink","orange"},cfg.ESP,"nameColor",function() createESP() end)
+
+	-- AIMBOT SETTINGS
+	createDropdown(cf,"Bind Key",{"MouseButton2","MouseButton3","E","Q","LeftShift","LeftControl"},cfg.Aimbot,"bindKey",function() end)
+	createSlider(pf,"Third Person Dist",cfg.Player,"thirdPersonDist",5,30,function(val) pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") and cfg.Player.thirdPerson then ch.Humanoid.CameraDistanceOffset=val end end) end)
+	createSlider(pf,"FOV Value",cfg.Player,"fovValue",50,120,function(val) if cfg.Player.fovChanger then Camera.FieldOfView=val end end)
+
+	-- ADMIN COMMANDS
+	local af=categoryFrames["Admin"] or categoryFrames["Extra"] -- Admin kategorisi yoksa Extra'ya ekle
+	local cmdBox=Instance.new("TextBox")
+	cmdBox.Size=UDim2.new(1,-10,0,30); cmdBox.BackgroundColor3=theme.inputBg; cmdBox.TextColor3=theme.text
+	cmdBox.PlaceholderText="cmd: fly|noclip|esp|aimbot|god|speed|jump|rejoin|bright"
+	cmdBox.Font=Enum.Font.Code; cmdBox.TextSize=11; cmdBox.ClearTextOnFocus=true; cmdBox.Parent=ef
+	cmdBox.FocusLost:Connect(function(ep)
+		if not ep then return end
+		local txt=cmdBox.Text:lower():gsub("^%s+",""):gsub("%s+$","")
+		if txt=="fly" then cfg.Fly.enabled=not cfg.Fly.enabled; if cfg.Fly.enabled then startFly() else stopFly() end; notify("Fly: "..tostring(cfg.Fly.enabled),1)
+		elseif txt=="noclip" then cfg.Movement.noclip=not cfg.Movement.noclip; if cfg.Movement.noclip then noclipConn=RunService.Stepped:Connect(function() local c=LocalPlayer.Character; if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end end); regConn(noclipConn) else if noclipConn then noclipConn:Disconnect(); noclipConn=nil end end; notify("NoClip: "..tostring(cfg.Movement.noclip),1)
+		elseif txt=="esp" then cfg.ESP.enabled=not cfg.ESP.enabled; createESP(); notify("ESP: "..tostring(cfg.ESP.enabled),1)
+		elseif txt=="aimbot" then cfg.Aimbot.enabled=not cfg.Aimbot.enabled; if cfg.Aimbot.enabled then startAimbot() else stopAimbot() end; notify("Aimbot: "..tostring(cfg.Aimbot.enabled),1)
+		elseif txt=="god" then cfg.Player.godmode=not cfg.Player.godmode; applyGodmode(cfg.Player.godmode); notify("Godmode: "..tostring(cfg.Player.godmode),1)
+		elseif txt:sub(1,6)=="speed " then local v=tonumber(txt:sub(7)); if v then cfg.Movement.walkSpeed=v; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.WalkSpeed=v end; notify("Speed: "..v,1) end
+		elseif txt:sub(1,5)=="jump " then local v=tonumber(txt:sub(6)); if v then cfg.Movement.jumpPower=v; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.JumpPower=v end; notify("Jump: "..v,1) end
+		elseif txt=="rejoin" then TeleportService:Teleport(game.PlaceId,LocalPlayer)
+		elseif txt=="bright" then cfg.Server.fullbright=not cfg.Server.fullbright; enableFullbright(cfg.Server.fullbright); notify("Fullbright: "..tostring(cfg.Server.fullbright),1)
+		elseif txt=="spin" then cfg.Movement.spinBot=not cfg.Movement.spinBot; if cfg.Movement.spinBot then spinAngle=0; spinConn=RunService.Heartbeat:Connect(function(dt) spinAngle=spinAngle+dt*360; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("HumanoidRootPart") then ch.HumanoidRootPart.CFrame=CFrame.new(ch.HumanoidRootPart.Position)*CFrame.Angles(0,math.rad(spinAngle),0) end end); regConn(spinConn) else if spinConn then spinConn:Disconnect(); spinConn=nil end end; notify("Spin: "..tostring(cfg.Movement.spinBot),1)
+		elseif txt=="3rd" then cfg.Player.thirdPerson=not cfg.Player.thirdPerson; pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.CameraDistanceOffset=cfg.Player.thirdPerson and cfg.Player.thirdPersonDist or 0 end end); notify("3rd Person: "..tostring(cfg.Player.thirdPerson),1)
+		end
+		cmdBox.Text=""
+	end)
 end
 
 -- Teleport cleanup
