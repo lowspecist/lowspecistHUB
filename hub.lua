@@ -317,15 +317,27 @@ local function switchCategory(name)
 end
 switchCategory("Movement")
 
--- Закрытие по RightShift
+-- Закрытие по RightShift или X
 Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.RightShift then
+	if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.X then
 		gui.Enabled = not gui.Enabled
 	end
 end)
 
--- Модули функционала (те же, что в v5.1, без изменений)
+-- Модули функционала
+local activeConnections = {}
+local noclipConn = nil
+local function registerConn(conn)
+	table.insert(activeConnections, conn)
+	return conn
+end
+local function cleanFeatureConns()
+	for _, c in ipairs(activeConnections) do
+		if typeof(c) == "RBXScriptConnection" then pcall(function() c:Disconnect() end) end
+	end
+	activeConnections = {}
+end
 -- Fly
 local flyEnabled = false
 local flyBodyGyro, flyBodyVel, flyHeartbeat
@@ -372,7 +384,7 @@ end
 
 -- ESP
 local espDrawings = {}
-local espRenderStepName = "ESP_Update"
+local espRenderStepName = HttpService:GenerateGUID(false)
 local function removeESP()
 	if Services.RunService:IsRunning() then
 		pcall(function() Services.RunService:UnbindFromRenderStep(espRenderStepName) end)
@@ -386,66 +398,68 @@ local function createESP()
 	removeESP()
 	if not cfg.ESP.enabled then return end
 	Services.RunService:BindToRenderStep(espRenderStepName, 1, function()
-		local myTeam = LocalPlayer.Team
-		local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-		for _, player in ipairs(Services.Players:GetPlayers()) do
-			if player == LocalPlayer then continue end
-			if cfg.ESP.teamCheck and player.Team == myTeam then continue end
-			local char = player.Character
-			if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Head") then continue end
-			local head = char.Head
-			local root = char.HumanoidRootPart
-			local headPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-			if not onScreen then continue end
-			local footPos = Camera:WorldToViewportPoint((root.CFrame * CFrame.new(0, -3, 0)).Position)
-			local height = math.abs(footPos.Y - headPos.Y)
-			if cfg.ESP.box then
-				local box = Drawing.new("Square")
-				box.Visible = true; box.Color = Color3.fromRGB(255,0,0); box.Thickness = 2; box.Filled = false
-				local sizeX = height / 2
-				box.Position = Vector2.new(headPos.X - sizeX/2, headPos.Y)
-				box.Size = Vector2.new(sizeX, height)
-				table.insert(espDrawings, box)
-			end
-			if cfg.ESP.name then
-				local nm = Drawing.new("Text")
-				nm.Visible = true; nm.Color = Color3.fromRGB(255,255,255); nm.Center = true; nm.Outline = true; nm.Size = 16
-				nm.Position = Vector2.new(headPos.X, headPos.Y - 10)
-				nm.Text = player.Name
-				table.insert(espDrawings, nm)
-			end
-			if cfg.ESP.health then
-				local humanoid = char:FindFirstChild("Humanoid")
-				if humanoid then
-					local healthBar = Drawing.new("Square")
-					healthBar.Filled = true
-					local healthPercent = humanoid.Health / humanoid.MaxHealth
-					healthBar.Position = Vector2.new(headPos.X - 5 - height/4 - 2, headPos.Y + height*(1-healthPercent))
-					healthBar.Size = Vector2.new(4, height * healthPercent)
-					healthBar.Color = Color3.fromRGB(255*(1-healthPercent), 255*healthPercent, 0)
-					table.insert(espDrawings, healthBar)
+		pcall(function()
+			local myTeam = LocalPlayer.Team
+			local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			for _, player in ipairs(Services.Players:GetPlayers()) do
+				if player == LocalPlayer then continue end
+				if cfg.ESP.teamCheck and player.Team == myTeam then continue end
+				local char = player.Character
+				if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Head") then continue end
+				local head = char.Head
+				local root = char.HumanoidRootPart
+				local headPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+				if not onScreen then continue end
+				local footPos = Camera:WorldToViewportPoint((root.CFrame * CFrame.new(0, -3, 0)).Position)
+				local height = math.abs(footPos.Y - headPos.Y)
+				if cfg.ESP.box then
+					local box = Drawing.new("Square")
+					box.Visible = true; box.Color = Color3.fromRGB(255,0,0); box.Thickness = 2; box.Filled = false
+					local sizeX = height / 2
+					box.Position = Vector2.new(headPos.X - sizeX/2, headPos.Y)
+					box.Size = Vector2.new(sizeX, height)
+					table.insert(espDrawings, box)
+				end
+				if cfg.ESP.name then
+					local nm = Drawing.new("Text")
+					nm.Visible = true; nm.Color = Color3.fromRGB(255,255,255); nm.Center = true; nm.Outline = true; nm.Size = 16
+					nm.Position = Vector2.new(headPos.X, headPos.Y - 10)
+					nm.Text = player.Name
+					table.insert(espDrawings, nm)
+				end
+				if cfg.ESP.health then
+					local humanoid = char:FindFirstChild("Humanoid")
+					if humanoid and humanoid.MaxHealth > 0 then
+						local healthBar = Drawing.new("Square")
+						healthBar.Filled = true
+						local healthPercent = humanoid.Health / humanoid.MaxHealth
+						healthBar.Position = Vector2.new(headPos.X - 5 - height/4 - 2, headPos.Y + height*(1-healthPercent))
+						healthBar.Size = Vector2.new(4, height * healthPercent)
+						healthBar.Color = Color3.fromRGB(255*(1-healthPercent), 255*healthPercent, 0)
+						table.insert(espDrawings, healthBar)
+					end
+				end
+				if cfg.ESP.distance then
+					local distDraw = Drawing.new("Text")
+					distDraw.Visible = true; distDraw.Color = Color3.fromRGB(200,200,200); distDraw.Center = true; distDraw.Size = 14
+					local dist = myRoot and math.floor((myRoot.Position - root.Position).Magnitude) or 0
+					distDraw.Position = Vector2.new(headPos.X, headPos.Y + 10)
+					distDraw.Text = dist .. "m"
+					table.insert(espDrawings, distDraw)
+				end
+				if cfg.ESP.tracers then
+					local tracer = Drawing.new("Line")
+					tracer.Visible = true; tracer.Color = Color3.fromRGB(255,0,0); tracer.Thickness = 1
+					local screenMy = myRoot and Camera:WorldToViewportPoint(myRoot.Position)
+					local screenTarget = Camera:WorldToViewportPoint(root.Position)
+					if screenMy and screenMy.Z > 0 and screenTarget.Z > 0 then
+						tracer.From = Vector2.new(screenMy.X, screenMy.Y)
+						tracer.To = Vector2.new(screenTarget.X, screenTarget.Y)
+					end
+					table.insert(espDrawings, tracer)
 				end
 			end
-			if cfg.ESP.distance then
-				local distDraw = Drawing.new("Text")
-				distDraw.Visible = true; distDraw.Color = Color3.fromRGB(200,200,200); distDraw.Center = true; distDraw.Size = 14
-				local dist = myRoot and math.floor((myRoot.Position - root.Position).Magnitude) or 0
-				distDraw.Position = Vector2.new(headPos.X, headPos.Y + 10)
-				distDraw.Text = dist .. "m"
-				table.insert(espDrawings, distDraw)
-			end
-			if cfg.ESP.tracers then
-				local tracer = Drawing.new("Line")
-				tracer.Visible = true; tracer.Color = Color3.fromRGB(255,0,0); tracer.Thickness = 1
-				local screenMy = myRoot and Camera:WorldToViewportPoint(myRoot.Position)
-				local screenTarget = Camera:WorldToViewportPoint(root.Position)
-				if screenMy and screenMy.Z > 0 and screenTarget.Z > 0 then
-					tracer.From = Vector2.new(screenMy.X, screenMy.Y)
-					tracer.To = Vector2.new(screenTarget.X, screenTarget.Y)
-				end
-				table.insert(espDrawings, tracer)
-			end
-		end
+		end)
 	end)
 end
 
@@ -460,7 +474,7 @@ local function applyChams()
 			local char = player.Character
 			if char then
 				local hl = Instance.new("Highlight")
-				hl.Name = "lowspecistChams"
+				hl.Name = HttpService:GenerateGUID(false)
 				hl.FillColor = Color3.fromRGB(255,0,0)
 				hl.OutlineColor = Color3.fromRGB(255,0,0)
 				hl.FillTransparency = 0.5
@@ -474,35 +488,40 @@ end
 
 -- Aimbot
 local aimbotActive = false
-local aimbotRenderStep = "Aimbot_Render"
+local aimbotRenderStep = HttpService:GenerateGUID(false)
 local function startAimbot()
 	if aimbotActive then return end
 	aimbotActive = true
 	Services.RunService:BindToRenderStep(aimbotRenderStep, 2, function()
-		if not cfg.Aimbot.enabled and not cfg.Triggerbot.enabled then return end
-		local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-		if not myRoot then return end
-		local closestDist = cfg.Aimbot.fov
-		local target = nil
-		local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-		for _, player in ipairs(Services.Players:GetPlayers()) do
-			if player == LocalPlayer then continue end
-			local char = player.Character
-			if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-				local screenPos, onScreen = Camera:WorldToViewportPoint(char.Head.Position)
-				if onScreen then
-					local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-					if distFromCenter < closestDist then
-						closestDist = distFromCenter
-						target = player
+		pcall(function()
+			if not cfg.Aimbot.enabled and not cfg.Triggerbot.enabled then return end
+			local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if not myRoot then return end
+			local closestDist = cfg.Aimbot.fov
+			local target = nil
+			local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+			for _, player in ipairs(Services.Players:GetPlayers()) do
+				if player == LocalPlayer then continue end
+				local char = player.Character
+				if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+					local screenPos, onScreen = Camera:WorldToViewportPoint(char.Head.Position)
+					if onScreen then
+						local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+						if distFromCenter < closestDist then
+							closestDist = distFromCenter
+							target = player
+						end
 					end
 				end
 			end
-		end
-		if cfg.Aimbot.enabled and target then
-			local head = target.Character.Head
-			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, head.Position), cfg.Aimbot.smooth)
-		end
+			if cfg.Aimbot.enabled and target then
+				local tChar = target.Character
+				if tChar and tChar:FindFirstChild("Head") then
+					local head = tChar.Head
+					Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, head.Position), cfg.Aimbot.smooth)
+				end
+			end
+		end)
 	end)
 end
 local function stopAimbot()
@@ -547,11 +566,18 @@ local function applyAntiFling(enabled)
 	if enabled then
 		local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local root = char:WaitForChild("HumanoidRootPart")
-		local oldVel = root.Velocity
-		local conn = root:GetPropertyChangedSignal("Velocity"):Connect(function()
-			if root.Velocity.Magnitude > 200 then root.Velocity = oldVel end
+		local lastSafe = root.Velocity
+		local conn = Services.RunService.Heartbeat:Connect(function()
+			if not root or not root.Parent then return end
+			pcall(function()
+				if root.Velocity.Magnitude > 200 then
+					root.Velocity = lastSafe
+				else
+					lastSafe = root.Velocity
+				end
+			end)
 		end)
-		RegisterCleanUp(conn)
+		registerConn(conn)
 	end
 end
 local function applyClickTP(enabled)
@@ -561,17 +587,20 @@ local function applyClickTP(enabled)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				local mousePos = Services.UserInputService:GetMouseLocation()
 				local ray = Camera:ScreenPointToRay(mousePos.X, mousePos.Y)
+				local params = RaycastParams.new()
+				params.FilterType = Enum.RaycastFilterType.Exclude
 				local ignoreList = {}
 				if LocalPlayer.Character then
 					for _, child in ipairs(LocalPlayer.Character:GetChildren()) do
 						if child:IsA("BasePart") then table.insert(ignoreList, child) end
 					end
 				end
-				local hitPart, hitPosition = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList, false, false)
-				if hitPart then
+				params.FilterDescendantsInstances = ignoreList
+				local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
+				if result and result.Position then
 					local char = LocalPlayer.Character
 					if char and char:FindFirstChild("HumanoidRootPart") then
-						char.HumanoidRootPart.CFrame = CFrame.new(hitPosition + Vector3.new(0,3,0))
+						char.HumanoidRootPart.CFrame = CFrame.new(result.Position + Vector3.new(0,3,0))
 					end
 				end
 			end
@@ -604,12 +633,69 @@ end
 local function enableAntiAFK()
 	local vu = game:GetService("VirtualUser")
 	local conn = LocalPlayer.Idled:Connect(function()
-		vu:Button2Down(Vector2.new(0,0), Camera.CFrame)
-		task.wait(1)
-		vu:Button2Up(Vector2.new(0,0), Camera.CFrame)
+		vu:CaptureController()
+		vu:ClickButton2(Vector2.new())
 	end)
-	RegisterCleanUp(conn)
+	registerConn(conn)
 end
+
+-- Karakter ölüm/respawn handler
+local function onCharacterDeath()
+	-- Fly temizle
+	if flyEnabled then
+		if flyHeartbeat then flyHeartbeat:Disconnect() flyHeartbeat = nil end
+		if flyBodyGyro then pcall(function() flyBodyGyro:Destroy() end) flyBodyGyro = nil end
+		if flyBodyVel then pcall(function() flyBodyVel:Destroy() end) flyBodyVel = nil end
+		flyEnabled = false
+	end
+	-- Anti-fling connection temizle
+	cleanFeatureConns()
+end
+
+local function onCharacterSpawn(char)
+	-- Fly aktifse yeniden başlat
+	if cfg.Fly.enabled then
+		task.defer(function()
+			local root = char:WaitForChild("HumanoidRootPart", 3)
+			if root then startFly() end
+		end)
+	end
+	-- Noclip aktifse yeniden başlat
+	if cfg.Movement.noclip then
+		task.defer(function()
+			noclipConn = Services.RunService.Stepped:Connect(function()
+				local c = LocalPlayer.Character
+				if c then
+					for _, part in ipairs(c:GetDescendants()) do
+						if part:IsA("BasePart") then part.CanCollide = false end
+					end
+				end
+			end)
+			registerConn(noclipConn)
+		end)
+	end
+	-- Godmode aktifse yeniden uygula
+	if cfg.Player.godmode then
+		task.defer(function()
+			local hum = char:WaitForChild("Humanoid", 3)
+			if hum then
+				hum.MaxHealth = math.huge
+				hum.Health = math.huge
+			end
+		end)
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+	onCharacterDeath()
+	local hum = char:WaitForChild("Humanoid", 10)
+	if hum then
+		hum.Died:Connect(function()
+			onCharacterDeath()
+		end)
+	end
+	onCharacterSpawn(char)
+end)
 
 -- Заполнение категорий
 do
@@ -626,24 +712,33 @@ do
 			LocalPlayer.Character.Humanoid.JumpPower = val
 		end
 	end)
+	local infiniteJumpConn = nil
 	createToggle(movFrame, "Infinite Jump", cfg.Movement, "infiniteJump", function(on)
+		if infiniteJumpConn then infiniteJumpConn:Disconnect() end
+		infiniteJumpConn = nil
 		if on then
-			local conn = Services.UserInputService.JumpRequest:Connect(function()
+			infiniteJumpConn = Services.UserInputService.JumpRequest:Connect(function()
 				local char = LocalPlayer.Character
 				if char and char:FindFirstChild("Humanoid") then char.Humanoid.Jump = true end
 			end)
-			RegisterCleanUp(conn)
+			registerConn(infiniteJumpConn)
 		end
 	end)
+	noclipConn = nil
 	createToggle(movFrame, "NoClip", cfg.Movement, "noclip", function(on)
-		local function applyNoclip(char)
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then part.CanCollide = not on end
-			end
+		if noclipConn then noclipConn:Disconnect() end
+		noclipConn = nil
+		if on then
+			noclipConn = Services.RunService.Stepped:Connect(function()
+				local char = LocalPlayer.Character
+				if char then
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then part.CanCollide = false end
+					end
+				end
+			end)
+			registerConn(noclipConn)
 		end
-		if LocalPlayer.Character then applyNoclip(LocalPlayer.Character) end
-		local conn = LocalPlayer.CharacterAdded:Connect(applyNoclip)
-		RegisterCleanUp(conn)
 	end)
 
 	local visFrame = categoryFrames["Visual"]
@@ -687,26 +782,24 @@ do
 		if enterPressed then
 			local cmd = cmdBox.Text
 			if cmd == "rejoin" then rejoin()
-			elseif cmd:sub(1,5) == "print" then print(cmd:sub(7))
-			else print("Unknown: "..cmd)
 			end
 			cmdBox.Text = ""
 		end
 	end)
 
 	local extraFrame = categoryFrames["Extra"]
-	createButton(extraFrame, "Save Settings", function()
-		print("Saved to getgenv().lowspecistHUB_Config")
-	end)
+	createButton(extraFrame, "Save Settings", function() end)
 	createButton(extraFrame, "Load Settings", function() end)
 	createToggle(extraFrame, "Performance Mode", cfg.Performance, "mode", function(on)
-		local level = on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21
-		pcall(function() sethiddenprop(Services.Lighting, "RenderingQualityLevel", level) end)
+		pcall(function()
+			local settings = UserSettings():GetService("UserGameSettings")
+			settings.RenderingQualityLevel = on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21
+		end)
 	end)
 end
 
 LocalPlayer.OnTeleport:Connect(function()
-	DestroyAll()
+	cleanFeatureConns()
 	stopFly()
 	stopAimbot()
 	removeESP()
@@ -714,4 +807,4 @@ LocalPlayer.OnTeleport:Connect(function()
 	chamsHighlights = {}
 end)
 
-print("lowspecistHUB v4pro loaded")
+-- loaded silently
