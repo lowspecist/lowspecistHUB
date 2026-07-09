@@ -184,6 +184,27 @@ local function getESPColor(key)
 	return colorMap[cfg.ESP[key]] or theme.accent
 end
 
+-- ===== Sound System =====
+local soundEnabled = true
+local function playSound(soundId, volume, pitch)
+	if not soundEnabled then return end
+	pcall(function()
+		local s = Instance.new("Sound")
+		s.SoundId = soundId or "rbxassetid://130791370"
+		s.Volume = volume or 0.3
+		s.PlaybackSpeed = pitch or 1
+		s.Parent = SoundService
+		s:Play()
+		game:GetService("Debris"):AddItem(s, 2)
+	end)
+end
+local function playToggleSound(on)
+	playSound(on and "rbxassetid://130791370" or "rbxassetid://130791394", 0.2, on and 1.2 or 0.8)
+end
+local function playClickSound()
+	playSound("rbxassetid://130791370", 0.15, 1.5)
+end
+
 -- ===== RGB Color Picker =====
 local function createColorPicker(parent, text, configTable, key, callback)
 	local f = Instance.new("Frame")
@@ -315,7 +336,7 @@ local function createToggle(parent, text, configTable, key, callback)
 	local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, -54, 0, 30); l.Position = UDim2.new(0, 54, 0, 0); l.BackgroundTransparency = 1; l.TextColor3 = theme.text; l.Text = text; l.Font = Enum.Font.Gotham; l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
 	local function upd() b.BackgroundColor3 = configTable[key] and theme.btnOn or theme.btnOff end
 	upd()
-	b.MouseButton1Click:Connect(function() configTable[key] = not configTable[key]; upd(); if callback then pcall(callback, configTable[key]) end end)
+	b.MouseButton1Click:Connect(function() configTable[key] = not configTable[key]; upd(); playToggleSound(configTable[key]); if callback then pcall(callback, configTable[key]) end end)
 	task.defer(function() if callback then pcall(callback, configTable[key]) end end)
 	return f
 end
@@ -343,7 +364,7 @@ end
 
 local function createButton(parent, text, callback)
 	local b = Instance.new("TextButton"); b.Size = UDim2.new(1, -10, 0, 30); b.BackgroundColor3 = theme.inputBg; b.TextColor3 = theme.text; b.Text = text; b.Font = Enum.Font.Gotham; b.TextSize = 13; b.BorderSizePixel = 0; b.Parent = parent
-	b.MouseButton1Click:Connect(function() pcall(callback) end)
+	b.MouseButton1Click:Connect(function() playClickSound(); pcall(callback) end)
 	return b
 end
 
@@ -482,7 +503,30 @@ local function createESP()
 						local fp=Camera:WorldToViewportPoint((ch.HumanoidRootPart.CFrame*CFrame.new(0,-3,0)).Position)
 						local boxH=math.abs(fp.Y-hp.Y); if boxH<=0 then continue end
 						if cfg.ESP.box then
-							if cfg.ESP.boxStyle=="Corner" then
+							if cfg.ESP.boxStyle=="3D" then
+								-- 3D Box: 8 köşeyi 3D'den 2D'ye projekte et
+								local hrpCF=ch.HumanoidRootPart.CFrame
+								local topY=1.5; local botY=-3; local hw=1.5
+								local corners3D={
+									hrpCF*CFrame.new(-hw,topY,-hw), hrpCF*CFrame.new(hw,topY,-hw),
+									hrpCF*CFrame.new(hw,topY,hw), hrpCF*CFrame.new(-hw,topY,hw),
+									hrpCF*CFrame.new(-hw,botY,-hw), hrpCF*CFrame.new(hw,botY,-hw),
+									hrpCF*CFrame.new(hw,botY,hw), hrpCF*CFrame.new(-hw,botY,hw),
+								}
+								local corners2D={}
+								for _,c in ipairs(corners3D) do
+									local p,onS=Camera:WorldToViewportPoint(c.Position)
+									table.insert(corners2D,{pos=Vector2.new(p.X,p.Y),vis=onS})
+								end
+								local edges={{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}}
+								for _,e in ipairs(edges) do
+									local a,b=corners2D[e[1]],corners2D[e[2]]
+									if a.vis and b.vis then
+										local ln=safeDrawing("Line")
+										if ln then ln.Visible=true; ln.Color=getESPColor("boxColor"); ln.Thickness=cfg.ESP.boxThickness; ln.From=a.pos; ln.To=b.pos; table.insert(espDrawings,ln) end
+									end
+								end
+							elseif cfg.ESP.boxStyle=="Corner" then
 								local sw=boxH/2; local cs=math.max(sw*0.2,4)
 								local corners={{Vector2.new(hp.X-sw/2,hp.Y),Vector2.new(hp.X-sw/2+cs,hp.Y),Vector2.new(hp.X-sw/2,hp.Y+cs)},{Vector2.new(hp.X+sw/2,hp.Y),Vector2.new(hp.X+sw/2-cs,hp.Y),Vector2.new(hp.X+sw/2,hp.Y+cs)},{Vector2.new(hp.X-sw/2,hp.Y+boxH),Vector2.new(hp.X-sw/2+cs,hp.Y+boxH),Vector2.new(hp.X-sw/2,hp.Y+boxH-cs)},{Vector2.new(hp.X+sw/2,hp.Y+boxH),Vector2.new(hp.X+sw/2-cs,hp.Y+boxH),Vector2.new(hp.X+sw/2,hp.Y+boxH-cs)}}
 								for _,c in ipairs(corners) do
@@ -710,7 +754,7 @@ do
 	local vf=categoryFrames["Visual"]
 	createToggle(vf,"ESP Master",cfg.ESP,"enabled",function() createESP() end)
 	createToggle(vf,"Box",cfg.ESP,"box",function() createESP() end)
-	createDropdown(vf,"Box Style",{"Corner","Full"},cfg.ESP,"boxStyle",function() createESP() end)
+	createDropdown(vf,"Box Style",{"Corner","Full","3D"},cfg.ESP,"boxStyle",function() createESP() end)
 	createToggle(vf,"Name",cfg.ESP,"name",function() createESP() end)
 	createToggle(vf,"Health",cfg.ESP,"health",function() createESP() end)
 	createToggle(vf,"Distance",cfg.ESP,"distance",function() createESP() end)
@@ -756,7 +800,7 @@ do
 			local btnFrame=Instance.new("Frame"); btnFrame.Size=UDim2.new(1,-10,0,18); btnFrame.Position=UDim2.new(0,5,0,20); btnFrame.BackgroundTransparency=1; btnFrame.Parent=pf2
 			local function makeBtn(txt,pos,callback)
 				local b=Instance.new("TextButton"); b.Size=UDim2.new(0,45,0,16); b.Position=UDim2.new(0,pos,0,0); b.BackgroundColor3=theme.accentDim; b.TextColor3=theme.text; b.Text=txt; b.Font=Enum.Font.Gotham; b.TextSize=9; b.BorderSizePixel=0; b.Parent=btnFrame
-				b.MouseButton1Click:Connect(function() pcall(callback) end)
+				b.MouseButton1Click:Connect(function() playClickSound(); pcall(callback) end)
 			end
 			if p~=LocalPlayer then
 				makeBtn("Spectate",0,function() pcall(function() Camera.CameraSubject=p.Character.Humanoid end) end)
@@ -820,6 +864,8 @@ do
 	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json); end; configAutoSave(); notify("Config kaydedildi + kopyalandı",1) end)
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end; notify("Config yüklendi",1) end end end)
 	createToggle(ef,"Performance Mode",cfg.Performance,"mode",function(on) pcall(function() local s=UserSettings():GetService("UserGameSettings"); s.RenderingQualityLevel=on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21 end) end)
+	createButton(ef,"Toggle Sounds",function() soundEnabled=not soundEnabled; notify(soundEnabled and "Sesler açıldı" or "Sesler kapatıldı",1) end)
+	createButton(ef,"Reset All Config",function() for k,v in pairs(defaultConfig) do if type(v)=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end; notify("Config sıfırlandı",1) end)
 	createButton(ef,"Destroy GUI",function() guiDestroyed=true; disableAllFeatures(); cleanConns(); stopAimbot(); removeESP(); for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; gui:Destroy() end)
 
 	-- ESP COLORS
