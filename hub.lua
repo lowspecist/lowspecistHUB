@@ -184,6 +184,121 @@ local function getESPColor(key)
 	return colorMap[cfg.ESP[key]] or theme.accent
 end
 
+-- ===== RGB Color Picker =====
+local function createColorPicker(parent, text, configTable, key, callback)
+	local f = Instance.new("Frame")
+	f.Size = UDim2.new(1, -10, 0, 80)
+	f.BackgroundTransparency = 1
+	f.Parent = parent
+
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.new(1, 0, 0, 18)
+	l.BackgroundTransparency = 1
+	l.TextColor3 = theme.text
+	l.Text = text
+	l.Font = Enum.Font.Gotham
+	l.TextSize = 13
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.Parent = f
+
+	-- Preview box
+	local preview = Instance.new("Frame")
+	preview.Size = UDim2.new(0, 30, 0, 18)
+	preview.Position = UDim2.new(1, -35, 0, 0)
+	preview.BackgroundColor3 = configTable[key] or Color3.fromRGB(255, 255, 255)
+	preview.BorderSizePixel = 0
+	preview.Parent = f
+
+	-- RGB sliders
+	local function makeRGBSlider(label, y, colorComp)
+		local sl = Instance.new("TextLabel")
+		sl.Size = UDim2.new(0, 15, 0, 16)
+		sl.Position = UDim2.new(0, 0, 0, y)
+		sl.BackgroundTransparency = 1
+		sl.TextColor3 = theme.textDim
+		sl.Text = label
+		sl.Font = Enum.Font.Gotham
+		sl.TextSize = 11
+		sl.Parent = f
+
+		local bar = Instance.new("Frame")
+		bar.Size = UDim2.new(0.7, 0, 0, 6)
+		bar.Position = UDim2.new(0, 20, 0, y+5)
+		bar.BackgroundColor3 = theme.sliderBg
+		bar.BorderSizePixel = 0
+		bar.Parent = f
+
+		local curColor = configTable[key] or Color3.fromRGB(255, 255, 255)
+		local r, g, b = curColor.R * 255, curColor.G * 255, curColor.B * 255
+		local val = colorComp == "r" and r or (colorComp == "g" and g or b)
+
+		local fill = Instance.new("Frame")
+		fill.Size = UDim2.new(val/255, 0, 1, 0)
+		fill.BackgroundColor3 = colorComp == "r" and Color3.fromRGB(255,0,0) or (colorComp == "g" and Color3.fromRGB(0,255,0) or Color3.fromRGB(0,0,255))
+		fill.BorderSizePixel = 0
+		fill.Parent = bar
+
+		local knob = Instance.new("TextButton")
+		knob.Size = UDim2.new(0, 10, 0, 10)
+		knob.Position = UDim2.new(val/255, -5, 0.5, -5)
+		knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		knob.Text = ""
+		knob.BorderSizePixel = 0
+		knob.Parent = bar
+
+		local dragging = false
+		knob.MouseButton1Down:Connect(function() dragging = true end)
+		UserInputService.InputEnded:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+		end)
+		UserInputService.InputChanged:Connect(function(inp)
+			if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+				local p = math.clamp((inp.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+				knob.Position = UDim2.new(p, -5, 0.5, -5)
+				fill.Size = UDim2.new(p, 0, 1, 0)
+				if colorComp == "r" then r = p * 255
+				elseif colorComp == "g" then g = p * 255
+				else b = p * 255 end
+				local newColor = Color3.fromRGB(r, g, b)
+				configTable[key] = newColor
+				preview.BackgroundColor3 = newColor
+				if callback then pcall(callback, newColor) end
+			end
+		end)
+	end
+
+	makeRGBSlider("R", 22, "r")
+	makeRGBSlider("G", 40, "g")
+	makeRGBSlider("B", 58, "b")
+
+	return f
+end
+
+-- ===== Config Auto-Save =====
+local function configAutoSave()
+	pcall(function()
+		if writefile then
+			local json = HttpService:JSONEncode(cfg)
+			writefile("lowspecist_config.json", json)
+		end
+	end)
+end
+local function configAutoLoad()
+	pcall(function()
+		if readfile and isfile and isfile("lowspecist_config.json") then
+			local ok, data = pcall(function() return HttpService:JSONDecode(readfile("lowspecist_config.json")) end)
+			if ok and data then
+				for k, v in pairs(data) do
+					if type(v) == "table" and type(cfg[k]) == "table" then
+						for sk, sv in pairs(v) do cfg[k][sk] = sv end
+					else cfg[k] = v end
+				end
+			end
+		end
+	end)
+end
+configAutoLoad()
+
 -- ===== UI Theme =====
 local theme = {
 	bg = Color3.fromRGB(12, 12, 18), panelBg = Color3.fromRGB(18, 18, 25), sideBg = Color3.fromRGB(10, 10, 15),
@@ -702,7 +817,7 @@ do
 			notify("Theme: "..name,1)
 		end
 	end)
-	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json); notify("Config kopyalandı",1) end end)
+	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json); end; configAutoSave(); notify("Config kaydedildi + kopyalandı",1) end)
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end; notify("Config yüklendi",1) end end end)
 	createToggle(ef,"Performance Mode",cfg.Performance,"mode",function(on) pcall(function() local s=UserSettings():GetService("UserGameSettings"); s.RenderingQualityLevel=on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21 end) end)
 	createButton(ef,"Destroy GUI",function() guiDestroyed=true; disableAllFeatures(); cleanConns(); stopAimbot(); removeESP(); for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; gui:Destroy() end)
@@ -710,6 +825,8 @@ do
 	-- ESP COLORS
 	createDropdown(vf,"Box Color",{"accent","red","green","blue","yellow","purple","white","cyan","pink","orange"},cfg.ESP,"boxColor",function() createESP() end)
 	createDropdown(vf,"Name Color",{"white","red","green","blue","yellow","purple","cyan","pink","orange"},cfg.ESP,"nameColor",function() createESP() end)
+	createColorPicker(vf,"Custom Box RGB",cfg.ESP,"customBoxColor",function() createESP() end)
+	createColorPicker(vf,"Custom Name RGB",cfg.ESP,"customNameColor",function() createESP() end)
 
 	-- AIMBOT SETTINGS
 	createDropdown(cf,"Bind Key",{"MouseButton2","MouseButton3","E","Q","LeftShift","LeftControl"},cfg.Aimbot,"bindKey",function() end)
@@ -751,6 +868,14 @@ do
 		cmdBox.Text=""
 	end)
 end
+
+-- ===== PERIODIC AUTO-SAVE =====
+task.spawn(function()
+	while not guiDestroyed do
+		task.wait(30)
+		pcall(configAutoSave)
+	end
+end)
 
 -- Teleport cleanup
 LocalPlayer.OnTeleport:Connect(function() guiDestroyed=true; cleanConns(); stopAimbot(); removeESP(); for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; chamsHL={} end)
