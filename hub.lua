@@ -461,30 +461,54 @@ local fovCircle = nil
 local spinConn = nil
 local spinAngle = 0
 local originalLighting = nil
-local godmodeConn = nil
 local speedForceConn = nil
 
 -- ===== GODMODE (safe) =====
--- Ölümü engeller: health düşerken anında restore eder, MaxHealth = math.huge KULLANMAZ
+-- 3 katmanlı koruma: 1) BreakJointsOnDeath kapat, 2) RequiresNeck kapat, 3) Health restore
+local godmodeConns = {}
 local function applyGodmode(on)
-	if godmodeConn then godmodeConn:Disconnect(); godmodeConn = nil end
+	-- temizle
+	for _, c in ipairs(godmodeConns) do pcall(function() c:Disconnect() end) end
+	godmodeConns = {}
 	if on then
 		local function setup(char)
 			local hum = char:WaitForChild("Humanoid", 5)
 			if not hum then return end
+			-- Katman 1: Ölümde eklem kırılmasını engelle
+			hum.BreakJointsOnDeath = false
+			-- Katman 2: Boyun kırılma kontrolünü kapat
+			pcall(function() hum.RequiresNeck = false end)
+			-- Katman 3: Sağlık düşüşünü izle ve restore et
 			local maxHP = hum.MaxHealth
-			godmodeConn = hum.HealthChanged:Connect(function(newHP)
+			local c1 = hum.HealthChanged:Connect(function(newHP)
 				if not cfg.Player.godmode then return end
-				-- Sağlık kritik seviyeye düştüğünde (ölüme yakın) anında restore
-				if newHP <= maxHP * 0.3 then
-					hum.Health = maxHP
+				if newHP < maxHP then
+					task.defer(function()
+						pcall(function()
+							if hum and hum.Parent then
+								hum.Health = maxHP
+								hum.BreakJointsOnDeath = false
+							end
+						end)
+					end)
 				end
 			end)
-			regConn(godmodeConn)
+			table.insert(godmodeConns, c1)
+			-- Katman 4: Ölüm state'ini engelle
+			local c2 = hum.StateChanged:Connect(function(_, newState)
+				if not cfg.Player.godmode then return end
+				if newState == Enum.HumanoidStateType.Dead then
+					pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+				end
+			end)
+			table.insert(godmodeConns, c2)
 		end
 		if LocalPlayer.Character then setup(LocalPlayer.Character) end
-		local c = LocalPlayer.CharacterAdded:Connect(setup)
-		regConn(c)
+		local c = LocalPlayer.CharacterAdded:Connect(function(char)
+			task.wait(0.5)
+			setup(char)
+		end)
+		table.insert(godmodeConns, c)
 	end
 end
 
@@ -693,7 +717,7 @@ disableAllFeatures = function()
 	if noclipConn then noclipConn:Disconnect(); noclipConn=nil; cfg.Movement.noclip=false end
 	if ijConn then ijConn:Disconnect(); ijConn=nil; cfg.Movement.infiniteJump=false end
 	if spinConn then spinConn:Disconnect(); spinConn=nil; cfg.Movement.spinBot=false end
-	if godmodeConn then godmodeConn:Disconnect(); godmodeConn=nil; cfg.Player.godmode=false end
+	if cfg.Player.godmode then cfg.Player.godmode=false; applyGodmode(false) end
 	stopSpeedForce()
 	if cfg.ESP.enabled then cfg.ESP.enabled=false; removeESP() end
 	if cfg.ESP.chams then cfg.ESP.chams=false; for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; chamsHL={} end
