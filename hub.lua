@@ -98,10 +98,10 @@ loadingGui:Destroy()
 -- ===== Config =====
 local defaultConfig = {
 	Fly = { enabled = false, speed = 50 },
-	Movement = { walkSpeed = 16, jumpPower = 50, jumpHeight = false, infiniteJump = false, noclip = false, gravity = 196.2, spinBot = false },
+	Movement = { walkSpeed = 16, jumpPower = 50, jumpHeight = false, infiniteJump = false, noclip = false, gravity = 196.2, spinBot = false, speedForce = false },
 	ESP = { enabled = false, box = true, boxStyle = "Corner", name = true, health = true, distance = true, tracers = false, snaplines = false, skeleton = false, headDot = false, chams = false, teamCheck = false },
 	Aimbot = { enabled = false, fov = 100, smooth = 0.2, showFOV = false },
-	Player = { thirdPerson = false, fovChanger = false },
+	Player = { thirdPerson = false, fovChanger = false, godmode = false },
 	Server = { antiAFK = false, fullbright = false },
 	Performance = { mode = false },
 }
@@ -461,6 +461,54 @@ local fovCircle = nil
 local spinConn = nil
 local spinAngle = 0
 local originalLighting = nil
+local godmodeConn = nil
+local speedForceConn = nil
+
+-- ===== GODMODE (safe) =====
+-- Ölümü engeller: health düşerken anında restore eder, MaxHealth = math.huge KULLANMAZ
+local function applyGodmode(on)
+	if godmodeConn then godmodeConn:Disconnect(); godmodeConn = nil end
+	if on then
+		local function setup(char)
+			local hum = char:WaitForChild("Humanoid", 5)
+			if not hum then return end
+			local maxHP = hum.MaxHealth
+			godmodeConn = hum.HealthChanged:Connect(function(newHP)
+				if not cfg.Player.godmode then return end
+				-- Sağlık kritik seviyeye düştüğünde (ölüme yakın) anında restore
+				if newHP <= maxHP * 0.3 then
+					hum.Health = maxHP
+				end
+			end)
+			regConn(godmodeConn)
+		end
+		if LocalPlayer.Character then setup(LocalPlayer.Character) end
+		local c = LocalPlayer.CharacterAdded:Connect(setup)
+		regConn(c)
+	end
+end
+
+-- ===== SPEED FORCE =====
+-- WalkSpeed/JumpPower'ı sürekli zorla uygular, oyun resetleyemez
+local function startSpeedForce()
+	if speedForceConn then return end
+	speedForceConn = RunService.Heartbeat:Connect(function()
+		local ch = LocalPlayer.Character
+		if ch and ch:FindFirstChild("Humanoid") then
+			local hum = ch.Humanoid
+			if hum.WalkSpeed ~= cfg.Movement.walkSpeed then
+				hum.WalkSpeed = cfg.Movement.walkSpeed
+			end
+			if hum.JumpPower ~= cfg.Movement.jumpPower then
+				hum.JumpPower = cfg.Movement.jumpPower
+			end
+		end
+	end)
+	regConn(speedForceConn)
+end
+local function stopSpeedForce()
+	if speedForceConn then speedForceConn:Disconnect(); speedForceConn = nil end
+end
 
 -- ===== FLY =====
 local function startFly()
@@ -645,6 +693,8 @@ disableAllFeatures = function()
 	if noclipConn then noclipConn:Disconnect(); noclipConn=nil; cfg.Movement.noclip=false end
 	if ijConn then ijConn:Disconnect(); ijConn=nil; cfg.Movement.infiniteJump=false end
 	if spinConn then spinConn:Disconnect(); spinConn=nil; cfg.Movement.spinBot=false end
+	if godmodeConn then godmodeConn:Disconnect(); godmodeConn=nil; cfg.Player.godmode=false end
+	stopSpeedForce()
 	if cfg.ESP.enabled then cfg.ESP.enabled=false; removeESP() end
 	if cfg.ESP.chams then cfg.ESP.chams=false; for _,hl in ipairs(chamsHL) do pcall(function() hl:Destroy() end) end; chamsHL={} end
 	if cfg.Aimbot.enabled then cfg.Aimbot.enabled=false; stopAimbot() end
@@ -688,6 +738,10 @@ do
 		if spinConn then spinConn:Disconnect(); spinConn=nil end
 		if on then spinAngle=0; spinConn=RunService.Heartbeat:Connect(function(dt) spinAngle=spinAngle+dt*360; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("HumanoidRootPart") then ch.HumanoidRootPart.CFrame=CFrame.new(ch.HumanoidRootPart.Position)*CFrame.Angles(0,math.rad(spinAngle),0) end end); regConn(spinConn) end
 	end)
+	createButton(mf,"Speed Force (toggle)",function()
+		if speedForceConn then stopSpeedForce(); cfg.Movement.speedForce=false
+		else startSpeedForce(); cfg.Movement.speedForce=true end
+	end)
 
 	-- VISUAL
 	local vf=categoryFrames["Visual"]
@@ -719,6 +773,7 @@ do
 	local pf=categoryFrames["Player"]
 	createToggle(pf,"Third Person",cfg.Player,"thirdPerson",function(on) pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.CameraDistanceOffset=on and 12 or 0 end end) end)
 	createToggle(pf,"FOV Changer",cfg.Player,"fovChanger",function(on) Camera.FieldOfView=on and 90 or 70 end)
+	createToggle(pf,"Godmode (safe)",cfg.Player,"godmode",function(on) applyGodmode(on) end)
 
 	-- SERVER
 	local sf=categoryFrames["Server"]
