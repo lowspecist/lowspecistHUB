@@ -1,4 +1,4 @@
--- lowspecistHUB v5 — tüm özellikler
+-- lowspecistHUB v1pro — tüm özellikler
 -- Xeno Executor uyumlu
 
 local Players = game:GetService("Players")
@@ -109,6 +109,7 @@ local function createSlider(parent, text, configTable, key, min, max, callback)
 	f.Parent = parent
 
 	local val = configTable[key] or min
+	local range = math.max(max - min, 1)
 	local l = Instance.new("TextLabel")
 	l.Size = UDim2.new(1, 0, 0, 18)
 	l.BackgroundTransparency = 1
@@ -127,14 +128,14 @@ local function createSlider(parent, text, configTable, key, min, max, callback)
 	bar.Parent = f
 
 	local fill = Instance.new("Frame")
-	fill.Size = UDim2.new((val-min)/(max-min), 0, 1, 0)
+	fill.Size = UDim2.new((val-min)/range, 0, 1, 0)
 	fill.BackgroundColor3 = Color3.fromRGB(0,100,255)
 	fill.BorderSizePixel = 0
 	fill.Parent = bar
 
 	local knob = Instance.new("TextButton")
 	knob.Size = UDim2.new(0, 12, 0, 12)
-	knob.Position = UDim2.new((val-min)/(max-min), -6, 0.5, -6)
+	knob.Position = UDim2.new((val-min)/range, -6, 0.5, -6)
 	knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
 	knob.Text = ""
 	knob.BorderSizePixel = 0
@@ -142,8 +143,8 @@ local function createSlider(parent, text, configTable, key, min, max, callback)
 
 	local dragging = false
 	local function update(inp)
-		local p = math.clamp((inp.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-		local v = math.floor(min + (max-min)*p)
+		local p = math.clamp((inp.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+		local v = math.floor(min + range*p)
 		knob.Position = UDim2.new(p, -6, 0.5, -6)
 		fill.Size = UDim2.new(p, 0, 1, 0)
 		l.Text = text..": "..v
@@ -152,13 +153,19 @@ local function createSlider(parent, text, configTable, key, min, max, callback)
 	end
 
 	knob.MouseButton1Down:Connect(function() dragging = true end)
-	UserInputService.InputEnded:Connect(function(inp)
+	local conn1 = UserInputService.InputEnded:Connect(function(inp)
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 	end)
-	UserInputService.InputChanged:Connect(function(inp)
+	local conn2 = UserInputService.InputChanged:Connect(function(inp)
 		if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
 			update({Position = Vector2.new(inp.Position.X, inp.Position.Y)})
 		end
+	end)
+	pcall(function()
+		f.Destroying:Connect(function()
+			conn1:Disconnect()
+			conn2:Disconnect()
+		end)
 	end)
 	task.defer(function()
 		if callback then pcall(callback, val) end
@@ -207,7 +214,7 @@ local function createDropdown(parent, text, options, configTable, key, callback)
 	btn.BorderSizePixel = 0
 	btn.Parent = f
 
-	local idx = 1
+	local idx = 0
 	btn.MouseButton1Click:Connect(function()
 		idx = idx % #options + 1
 		configTable[key] = options[idx]
@@ -249,7 +256,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -30, 1, 0)
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.fromRGB(0,200,255)
-title.Text = "lowspecistHUB v5"
+title.Text = "lowspecistHUB v1pro"
 title.Font = Enum.Font.Code
 title.TextSize = 16
 title.Parent = titleBar
@@ -366,7 +373,9 @@ end
 switchCategory("Movement")
 
 -- Toggle GUI (RShift / X)
+local guiDestroyed = false
 UserInputService.InputBegan:Connect(function(input, gp)
+	if guiDestroyed then return end
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.X then
 		gui.Enabled = not gui.Enabled
@@ -384,8 +393,11 @@ local aimbotActive = false
 local aimbotName = rndName()
 local fovCircle = nil
 local chamsHL = {}
-local spectating = nil
+local spectateTarget = nil
+local spectateConn = nil
 local savedMaxHP = nil
+local silentAimHooked = false
+local persistentConns = {} -- anti-afk, godmode connections survive death
 
 -- ===== FLY =====
 local function startFly()
@@ -455,13 +467,13 @@ local function createESP()
 						local hp, onScr = Camera:WorldToViewportPoint(ch.Head.Position)
 						if not onScr then continue end
 						local fp = Camera:WorldToViewportPoint((ch.HumanoidRootPart.CFrame * CFrame.new(0,-3,0)).Position)
-						local h = math.abs(fp.Y - hp.Y)
+						local boxH = math.abs(fp.Y - hp.Y)
 						if cfg.ESP.box then
 							local bx = Drawing.new("Square")
 							bx.Visible=true; bx.Color=Color3.fromRGB(255,0,0); bx.Thickness=2; bx.Filled=false
-							local sw = h/2
+							local sw = boxH/2
 							bx.Position = Vector2.new(hp.X-sw/2, hp.Y)
-							bx.Size = Vector2.new(sw, h)
+							bx.Size = Vector2.new(sw, boxH)
 							table.insert(espDrawings, bx)
 						end
 						if cfg.ESP.name then
@@ -472,12 +484,12 @@ local function createESP()
 						end
 						if cfg.ESP.health then
 							local hm = ch.Humanoid
-							if hm.MaxHealth > 0 then
+							if hm.MaxHealth > 0 and boxH > 0 then
 								local hb = Drawing.new("Square"); hb.Filled=true
-								local hp2 = hm.Health/hm.MaxHealth
-								hb.Position = Vector2.new(hp.X-5-h/4-2, hp.Y+h*(1-hp2))
-								hb.Size = Vector2.new(4, h*hp2)
-								hb.Color = Color3.fromRGB(255*(1-hp2), 255*hp2, 0)
+								local hpPct = hm.Health/hm.MaxHealth
+								hb.Position = Vector2.new(hp.X-5-boxH/4-2, hp.Y+boxH*(1-hpPct))
+								hb.Size = Vector2.new(4, boxH*hpPct)
+								hb.Color = Color3.fromRGB(255*(1-hpPct), 255*hpPct, 0)
 								table.insert(espDrawings, hb)
 							end
 						end
@@ -517,18 +529,18 @@ local function createESP()
 									table.insert(espDrawings, ln)
 								end
 							end
-							local h = ch:FindFirstChild("Head")
-							local t = ch:FindFirstChild("Torso") or ch:FindFirstChild("UpperTorso")
+							local head = ch:FindFirstChild("Head")
+							local torso = ch:FindFirstChild("Torso") or ch:FindFirstChild("UpperTorso")
 							local ra = ch:FindFirstChild("Right Arm") or ch:FindFirstChild("RightUpperArm")
 							local la = ch:FindFirstChild("Left Arm") or ch:FindFirstChild("LeftUpperArm")
 							local rl = ch:FindFirstChild("Right Leg") or ch:FindFirstChild("RightUpperLeg")
 							local ll = ch:FindFirstChild("Left Leg") or ch:FindFirstChild("LeftUpperLeg")
-							if h and t then
-								skLine(h.Position, t.Position)
-								if ra then skLine(t.Position, ra.Position) end
-								if la then skLine(t.Position, la.Position) end
-								if rl then skLine(t.Position, rl.Position) end
-								if ll then skLine(t.Position, ll.Position) end
+							if head and torso then
+								skLine(head.Position, torso.Position)
+								if ra then skLine(torso.Position, ra.Position) end
+								if la then skLine(torso.Position, la.Position) end
+								if rl then skLine(torso.Position, rl.Position) end
+								if ll then skLine(torso.Position, ll.Position) end
 							end
 						end
 					end
@@ -578,7 +590,10 @@ local function startAimbot()
 				fovCircle.Radius = cfg.Aimbot.fov
 				fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 			end
-			if not cfg.Aimbot.enabled and not cfg.Triggerbot.enabled then return end
+			-- Aimbot + Triggerbot + Silent Aim kontrolü
+			if not cfg.Aimbot.enabled and not cfg.Triggerbot.enabled and not cfg.Aimbot.silentAim then
+				return
+			end
 			local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 			if not myRoot then return end
 			local best, bestDist = nil, cfg.Aimbot.fov
@@ -608,40 +623,51 @@ local function startAimbot()
 				if tc and tc:FindFirstChild("Head") and tc:FindFirstChild("Humanoid") and tc.Humanoid.Health > 0 then
 					local sp, onS = Camera:WorldToViewportPoint(tc.Head.Position)
 					if onS then
-						if cfg.Triggerbot.delay > 0 then task.wait(cfg.Triggerbot.delay/1000) end
-						pcall(function()
-							mouse1press()
-							task.wait(0.05)
-							mouse1release()
-						end)
+						if cfg.Triggerbot.delay > 0 then
+							task.delay(cfg.Triggerbot.delay/1000, function()
+								pcall(function() mouse1press(); task.wait(0.05); mouse1release() end)
+							end)
+						else
+							pcall(function() mouse1press(); task.wait(0.05); mouse1release() end)
+						end
 					end
 				end
 			end
 			-- Silent Aim
-			if cfg.Aimbot.silentAim and best then
-				local tc = best.Character
-				if tc and tc:FindFirstChild("Head") then
-					-- hook namecall to redirect raycast
-					local oldNamecall
-					oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-						local method = getnamecallmethod()
-						if method == "FindPartOnRay" or method == "Raycast" then
-							local args = {...}
-							if args[1] == workspace then
-								args[2] = Ray.new(Camera.CFrame.Position, (tc.Head.Position - Camera.CFrame.Position).Unit * 1000)
-								return oldNamecall(self, unpack(args))
-							end
-						end
-						return oldNamecall(self, ...)
-					end))
-					regClean(oldNamecall)
+			if cfg.Aimbot.silentAim and best and not silentAimHooked then
+				local targetPlayer = best
+				local function getTargetHead()
+					local tc = targetPlayer and targetPlayer.Character
+					return tc and tc:FindFirstChild("Head")
 				end
+				local oldNamecall
+				oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+					if not cfg.Aimbot.silentAim then return oldNamecall(self, ...) end
+					local method = getnamecallmethod()
+					if (method == "FindPartOnRay" or method == "Raycast") and self == workspace then
+						local head = getTargetHead()
+						if head then
+							local args = {...}
+							args[2] = Ray.new(Camera.CFrame.Position, (head.Position - Camera.CFrame.Position).Unit * 1000)
+							return oldNamecall(self, unpack(args))
+						end
+					end
+					return oldNamecall(self, ...)
+				end))
+				silentAimHooked = true
+				silentAimOldNamecall = oldNamecall
 			end
 		end)
 	end)
 end
+local silentAimOldNamecall = nil
 local function stopAimbot()
 	aimbotActive = false
+	if cfg.Aimbot.silentAim and silentAimHooked and silentAimOldNamecall then
+		pcall(function() hookmetamethod(game, "__namecall", silentAimOldNamecall) end)
+		silentAimOldNamecall = nil
+	end
+	silentAimHooked = false
 	pcall(function() RunService:UnbindFromRenderStep(aimbotName) end)
 	if fovCircle then pcall(function() fovCircle:Remove() end) fovCircle = nil end
 end
@@ -731,8 +757,6 @@ local function applyClickTP(on)
 end
 
 -- SPECTATE
-local spectateTarget = nil
-local spectateConn = nil
 local function startSpectate(target)
 	if spectateTarget then stopSpectate() end
 	spectateTarget = target
@@ -772,7 +796,9 @@ end
 local function serverHop()
 	local myId = game.JobId
 	local servers = {}
-	local function fetch(cursor)
+	local cursor = nil
+	-- iteratif sayfalama (recursive değil)
+	for _ = 1, 5 do
 		local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100"..(cursor and "&cursor="..cursor or "")
 		local ok, resp = pcall(function()
 			local body = game:HttpGet(url)
@@ -784,10 +810,12 @@ local function serverHop()
 					table.insert(servers, s.id)
 				end
 			end
-			if #servers < 10 and resp.nextPageCursor then fetch(resp.nextPageCursor) end
+			cursor = resp.nextPageCursor
+			if not cursor or #servers >= 10 then break end
+		else
+			break
 		end
 	end
-	fetch()
 	if #servers > 0 then
 		TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1,#servers)], LocalPlayer)
 	end
@@ -799,23 +827,37 @@ local function enableAntiAFK()
 	end)
 	regConn(c)
 end
+local originalLighting = nil
 local function enableFullbright(on)
 	if on then
+		if not originalLighting then
+			originalLighting = {
+				Brightness = Lighting.Brightness,
+				ClockTime = Lighting.ClockTime,
+				FogEnd = Lighting.FogEnd,
+				GlobalShadows = Lighting.GlobalShadows,
+				Ambient = Lighting.Ambient,
+			}
+		end
 		Lighting.Brightness = 2
 		Lighting.ClockTime = 14
 		Lighting.FogEnd = 100000
 		Lighting.GlobalShadows = false
 		Lighting.Ambient = Color3.fromRGB(178,178,178)
 	else
-		Lighting.Brightness = 1
-		Lighting.ClockTime = 12
-		Lighting.FogEnd = 100000
-		Lighting.GlobalShadows = true
-		Lighting.Ambient = Color3.fromRGB(0,0,0)
+		if originalLighting then
+			Lighting.Brightness = originalLighting.Brightness
+			Lighting.ClockTime = originalLighting.ClockTime
+			Lighting.FogEnd = originalLighting.FogEnd
+			Lighting.GlobalShadows = originalLighting.GlobalShadows
+			Lighting.Ambient = originalLighting.Ambient
+			originalLighting = nil
+		end
 	end
 end
 
 -- ===== CHARACTER DEATH/RESPAWN =====
+local lifecycleConns = {} -- CharacterAdded, Died - korunur
 local function onCharDeath()
 	if flyEnabled then
 		if flyHeartbeat then flyHeartbeat:Disconnect() flyHeartbeat = nil end
@@ -823,7 +865,20 @@ local function onCharDeath()
 		if flyBodyVel then pcall(function() flyBodyVel:Destroy() end) flyBodyVel = nil end
 		flyEnabled = false
 	end
-	cleanConns()
+	-- sadece feature connection'ları temizle, lifecycle'ları koru
+	for _, c in ipairs(activeConns) do
+		if typeof(c) == "RBXScriptConnection" then pcall(function() c:Disconnect() end) end
+	end
+	activeConns = {}
+	for i = #CleanUp, 1, -1 do
+		local c = CleanUp[i]
+		if typeof(c) == "RBXScriptConnection" then
+			local isLC = false
+			for _, lc in ipairs(lifecycleConns) do if lc == c then isLC = true break end end
+			if not isLC then pcall(function() c:Disconnect() end) end
+		end
+		table.remove(CleanUp, i)
+	end
 end
 
 local function onCharSpawn(char)
@@ -869,9 +924,13 @@ local function onCharSpawn(char)
 end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
+	lifecycleConns = {}
 	onCharDeath()
 	local h = char:WaitForChild("Humanoid", 10)
-	if h then h.Died:Connect(onCharDeath) end
+	if h then
+		local diedConn = h.Died:Connect(onCharDeath)
+		table.insert(lifecycleConns, diedConn)
+	end
 	onCharSpawn(char)
 end)
 
@@ -881,14 +940,104 @@ do
 	local mf = categoryFrames["Movement"]
 	createToggle(mf, "Fly", cfg.Fly, "enabled", function(on) if on then startFly() else stopFly() end end)
 	createSlider(mf, "Fly Speed", cfg.Fly, "speed", 10, 200)
-	createSlider(mf, "WalkSpeed", cfg.Movement, "walkSpeed", 1, 200, function(val)
+	createSlider(mf, "WalkSpeed", cfg.Movement, "walkSpeed", 1, 1000, function(val)
 		local ch = LocalPlayer.Character
 		if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.WalkSpeed = val end
 	end)
-	createSlider(mf, "JumpPower", cfg.Movement, "jumpPower", 0, 500, function(val)
+	-- WalkSpeed manuel girişi
+	do
+		local f = Instance.new("Frame")
+		f.Size = UDim2.new(1, -10, 0, 25)
+		f.BackgroundTransparency = 1
+		f.Parent = mf
+		local tb = Instance.new("TextBox")
+		tb.Size = UDim2.new(0, 60, 0, 22)
+		tb.Position = UDim2.new(0, 50, 0, 0)
+		tb.BackgroundColor3 = Color3.fromRGB(50,50,50)
+		tb.TextColor3 = Color3.fromRGB(255,255,255)
+		tb.PlaceholderText = "değer"
+		tb.Font = Enum.Font.Code
+		tb.TextSize = 13
+		tb.BorderSizePixel = 0
+		tb.ClearTextOnFocus = true
+		tb.Parent = f
+		local lb = Instance.new("TextLabel")
+		lb.Size = UDim2.new(0, 45, 0, 22)
+		lb.BackgroundTransparency = 1
+		lb.TextColor3 = Color3.fromRGB(200,200,200)
+		lb.Text = "Set:"
+		lb.Font = Enum.Font.SourceSans
+		lb.TextSize = 13
+		lb.TextXAlignment = Enum.TextXAlignment.Left
+		lb.Parent = f
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 40, 0, 22)
+		btn.Position = UDim2.new(0, 115, 0, 0)
+		btn.BackgroundColor3 = Color3.fromRGB(0,100,200)
+		btn.TextColor3 = Color3.fromRGB(255,255,255)
+		btn.Text = "OK"
+		btn.Font = Enum.Font.SourceSans
+		btn.TextSize = 13
+		btn.BorderSizePixel = 0
+		btn.Parent = f
+		btn.MouseButton1Click:Connect(function()
+			local v = tonumber(tb.Text)
+			if v then
+				cfg.Movement.walkSpeed = v
+				local ch = LocalPlayer.Character
+				if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.WalkSpeed = v end
+			end
+		end)
+	end
+	createSlider(mf, "JumpPower", cfg.Movement, "jumpPower", 0, 2000, function(val)
 		local ch = LocalPlayer.Character
 		if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.JumpPower = val end
 	end)
+	-- JumpPower manuel girişi
+	do
+		local f = Instance.new("Frame")
+		f.Size = UDim2.new(1, -10, 0, 25)
+		f.BackgroundTransparency = 1
+		f.Parent = mf
+		local tb = Instance.new("TextBox")
+		tb.Size = UDim2.new(0, 60, 0, 22)
+		tb.Position = UDim2.new(0, 50, 0, 0)
+		tb.BackgroundColor3 = Color3.fromRGB(50,50,50)
+		tb.TextColor3 = Color3.fromRGB(255,255,255)
+		tb.PlaceholderText = "değer"
+		tb.Font = Enum.Font.Code
+		tb.TextSize = 13
+		tb.BorderSizePixel = 0
+		tb.ClearTextOnFocus = true
+		tb.Parent = f
+		local lb = Instance.new("TextLabel")
+		lb.Size = UDim2.new(0, 45, 0, 22)
+		lb.BackgroundTransparency = 1
+		lb.TextColor3 = Color3.fromRGB(200,200,200)
+		lb.Text = "Set:"
+		lb.Font = Enum.Font.SourceSans
+		lb.TextSize = 13
+		lb.TextXAlignment = Enum.TextXAlignment.Left
+		lb.Parent = f
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 40, 0, 22)
+		btn.Position = UDim2.new(0, 115, 0, 0)
+		btn.BackgroundColor3 = Color3.fromRGB(0,100,200)
+		btn.TextColor3 = Color3.fromRGB(255,255,255)
+		btn.Text = "OK"
+		btn.Font = Enum.Font.SourceSans
+		btn.TextSize = 13
+		btn.BorderSizePixel = 0
+		btn.Parent = f
+		btn.MouseButton1Click:Connect(function()
+			local v = tonumber(tb.Text)
+			if v then
+				cfg.Movement.jumpPower = v
+				local ch = LocalPlayer.Character
+				if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.JumpPower = v end
+			end
+		end)
+	end
 	createToggle(mf, "JumpHeight", cfg.Movement, "jumpHeight", function(on)
 		local ch = LocalPlayer.Character
 		if ch and ch:FindFirstChild("Humanoid") then
@@ -933,7 +1082,9 @@ do
 	createToggle(vf, "Skeleton", cfg.ESP, "skeleton", function() createESP() end)
 	createToggle(vf, "Chams", cfg.ESP, "chams", function() applyChams() end)
 	createToggle(vf, "Team Check", cfg.ESP, "teamCheck", function() createESP(); applyChams() end)
-	createToggle(vf, "Fullbright", cfg.Server, "fullbright", function(on) enableFullbright(on) end)
+	createToggle(vf, "Fullbright", cfg.Server, "fullbright", function(on)
+		if on then enableFullbright(true) else enableFullbright(false) end
+	end)
 
 	-- COMBAT
 	local cf = categoryFrames["Combat"]
@@ -967,20 +1118,47 @@ do
 	createToggle(pf, "Invisibility", cfg.Player, "invisibility", applyInvisibility)
 	createToggle(pf, "Anti-Fling", cfg.Player, "antiFling", applyAntiFling)
 	createToggle(pf, "Click TP (Ctrl+LMB)", cfg.Player, "clickTP", applyClickTP)
-	-- Spectate dropdown
-	local playerList = {}
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer then table.insert(playerList, p.Name) end
+	-- Spectate dropdown (dynamic)
+	local spectateFrame = Instance.new("Frame")
+	spectateFrame.Size = UDim2.new(1, -10, 0, 28)
+	spectateFrame.BackgroundTransparency = 1
+	spectateFrame.Parent = pf
+	local function refreshPlayerDropdowns()
+		for _, child in ipairs(spectateFrame:GetChildren()) do child:Destroy() end
+		local playerList = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then table.insert(playerList, p.Name) end
+		end
+		if #playerList == 0 then table.insert(playerList, "none") end
+		createDropdown(spectateFrame, "Spectate", playerList, cfg.Player, "spectate", function(name)
+			if name == "none" then stopSpectate(); return end
+			local target = Players:FindFirstChild(name)
+			if target then startSpectate(target) end
+		end)
 	end
-	if #playerList == 0 then table.insert(playerList, "none") end
-	createDropdown(pf, "Spectate", playerList, cfg.Player, "spectate", function(name)
-		if name == "none" then stopSpectate(); return end
-		local target = Players:FindFirstChild(name)
-		if target then startSpectate(target) end
-	end)
-	createDropdown(pf, "Teleport To", playerList, cfg.Player, "teleportTo", function(name)
-		local target = Players:FindFirstChild(name)
-		if target then teleportToPlayer(target) end
+	refreshPlayerDropdowns()
+	-- Teleport dropdown (dynamic)
+	local tpFrame = Instance.new("Frame")
+	tpFrame.Size = UDim2.new(1, -10, 0, 28)
+	tpFrame.BackgroundTransparency = 1
+	tpFrame.Parent = pf
+	local function refreshTPDropdown()
+		for _, child in ipairs(tpFrame:GetChildren()) do child:Destroy() end
+		local playerList = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= LocalPlayer then table.insert(playerList, p.Name) end
+		end
+		if #playerList == 0 then table.insert(playerList, "none") end
+		createDropdown(tpFrame, "Teleport To", playerList, cfg.Player, "teleportTo", function(name)
+			if name == "none" then return end
+			local target = Players:FindFirstChild(name)
+			if target then teleportToPlayer(target) end
+		end)
+	end
+	refreshTPDropdown()
+	createButton(pf, "Refresh Players", function()
+		refreshPlayerDropdowns()
+		refreshTPDropdown()
 	end)
 	createButton(pf, "Stop Spectate", function() stopSpectate() end)
 
@@ -1018,10 +1196,12 @@ do
 			local target = Players:FindFirstChild(txt:sub(4))
 			if target then teleportToPlayer(target) end
 		elseif txt == "fly" then
-			if flyEnabled then stopFly() else startFly() end
+			cfg.Fly.enabled = not cfg.Fly.enabled
+			if cfg.Fly.enabled then startFly() else stopFly() end
 		elseif txt == "noclip" then
-			if noclipConn then noclipConn:Disconnect(); noclipConn = nil
-			else
+			cfg.Movement.noclip = not cfg.Movement.noclip
+			if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+			if cfg.Movement.noclip then
 				noclipConn = RunService.Stepped:Connect(function()
 					local c = LocalPlayer.Character
 					if c then for _, p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
@@ -1051,7 +1231,16 @@ do
 		if getclipboard then
 			local ok, data = pcall(function() return HttpService:JSONDecode(getclipboard()) end)
 			if ok and data then
-				for k, v in pairs(data) do cfg[k] = v end
+				-- deep merge
+				for k, v in pairs(data) do
+					if type(v) == "table" and type(cfg[k]) == "table" then
+						for sk, sv in pairs(v) do
+							cfg[k][sk] = sv
+						end
+					else
+						cfg[k] = v
+					end
+				end
 			end
 		end
 	end)
@@ -1062,7 +1251,14 @@ do
 		end)
 	end)
 	createButton(ef, "Destroy GUI", function()
+		guiDestroyed = true
 		cleanConns()
+		-- clean persistent connections too
+		for _, c in ipairs(persistentConns) do
+			if typeof(c) == "RBXScriptConnection" then pcall(function() c:Disconnect() end)
+			elseif type(c) == "function" then pcall(c) end
+		end
+		persistentConns = {}
 		stopFly()
 		stopAimbot()
 		removeESP()
@@ -1073,7 +1269,13 @@ end
 
 -- Teleport cleanup
 LocalPlayer.OnTeleport:Connect(function()
+	guiDestroyed = true
 	cleanConns()
+	for _, c in ipairs(persistentConns) do
+		if typeof(c) == "RBXScriptConnection" then pcall(function() c:Disconnect() end)
+		elseif type(c) == "function" then pcall(c) end
+	end
+	persistentConns = {}
 	stopFly()
 	stopAimbot()
 	removeESP()
