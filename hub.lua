@@ -634,9 +634,20 @@ do
 		local i=0
 		for _,p in ipairs(Players:GetPlayers()) do
 			i=i+1
-			local pf2=Instance.new("Frame"); pf2.Size=UDim2.new(1,-6,0,28); pf2.BackgroundColor3=theme.panelBg; pf2.BorderSizePixel=0; pf2.LayoutOrder=i; pf2.Parent=playerScroll
-			local name=Instance.new("TextLabel"); name.Size=UDim2.new(0.4,0,1,0); name.BackgroundTransparency=1; name.TextColor3=p==LocalPlayer and theme.accent or theme.text; name.Text=p.Name; name.Font=Enum.Font.Gotham; name.TextSize=12; name.TextXAlignment=Enum.TextXAlignment.Left; name.Parent=pf2
-			local info=Instance.new("TextLabel"); info.Size=UDim2.new(0.6,0,1,0); info.Position=UDim2.new(0.4,0,0,0); info.BackgroundTransparency=1; info.TextColor3=theme.textDim; info.Font=Enum.Font.Code; info.TextSize=10; info.TextXAlignment=Enum.TextXAlignment.Right; info.Parent=pf2
+			local pf2=Instance.new("Frame"); pf2.Size=UDim2.new(1,-6,0,42); pf2.BackgroundColor3=theme.panelBg; pf2.BorderSizePixel=0; pf2.LayoutOrder=i; pf2.Parent=playerScroll
+			local name=Instance.new("TextLabel"); name.Size=UDim2.new(0.35,0,0,18); name.Position=UDim2.new(0,5,0,0); name.BackgroundTransparency=1; name.TextColor3=p==LocalPlayer and theme.accent or theme.text; name.Text=p.Name; name.Font=Enum.Font.Gotham; name.TextSize=12; name.TextXAlignment=Enum.TextXAlignment.Left; name.Parent=pf2
+			local info=Instance.new("TextLabel"); info.Size=UDim2.new(0.65,0,0,18); info.Position=UDim2.new(0.35,0,0,0); info.BackgroundTransparency=1; info.TextColor3=theme.textDim; info.Font=Enum.Font.Code; info.TextSize=10; info.TextXAlignment=Enum.TextXAlignment.Right; info.Parent=pf2
+			-- Butonlar
+			local btnFrame=Instance.new("Frame"); btnFrame.Size=UDim2.new(1,-10,0,18); btnFrame.Position=UDim2.new(0,5,0,20); btnFrame.BackgroundTransparency=1; btnFrame.Parent=pf2
+			local function makeBtn(txt,pos,callback)
+				local b=Instance.new("TextButton"); b.Size=UDim2.new(0,45,0,16); b.Position=UDim2.new(0,pos,0,0); b.BackgroundColor3=theme.accentDim; b.TextColor3=theme.text; b.Text=txt; b.Font=Enum.Font.Gotham; b.TextSize=9; b.BorderSizePixel=0; b.Parent=btnFrame
+				b.MouseButton1Click:Connect(function() pcall(callback) end)
+			end
+			if p~=LocalPlayer then
+				makeBtn("Spectate",0,function() pcall(function() Camera.CameraSubject=p.Character.Humanoid end) end)
+				makeBtn("Teleport",50,function() pcall(function() local myRoot=LocalPlayer.Character:FindFirstChild("HumanoidRootPart"); local tRoot=p.Character:FindFirstChild("HumanoidRootPart"); if myRoot and tRoot then myRoot.CFrame=tRoot.CFrame+Vector3.new(3,0,0) end end) end)
+				makeBtn("ESP",100,function() pcall(function() if p.Character then local hl=Instance.new("Highlight"); hl.Name=rndName(); hl.FillColor=Color3.fromRGB(255,0,0); hl.OutlineColor=Color3.fromRGB(255,0,0); hl.FillTransparency=0.3; hl.OutlineTransparency=0; hl.Parent=p.Character; task.delay(5,function() hl:Destroy() end) end end) end)
+			end
 			local function updateInfo()
 				if not p.Parent then info.Text="_left"; return end
 				local ch=p.Character
