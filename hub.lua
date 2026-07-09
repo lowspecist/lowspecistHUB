@@ -101,8 +101,8 @@ loadingGui:Destroy()
 local defaultConfig = {
 	Fly = { enabled = false, speed = 50 },
 	Movement = { walkSpeed = 16, jumpPower = 50, jumpHeight = false, infiniteJump = false, noclip = false, gravity = 196.2, spinBot = false, speedForce = false },
-	ESP = { enabled = false, box = true, boxStyle = "Corner", name = true, health = true, distance = true, tracers = false, snaplines = false, skeleton = false, headDot = false, chams = false, teamCheck = false, crosshair = false, throttle = false, boxColor = "accent", nameColor = "white" },
-	Aimbot = { enabled = false, fov = 100, smooth = 0.2, showFOV = false, teamCheck = false, prediction = false, bindKey = "MouseButton2" },
+	ESP = { enabled = false, box = true, boxStyle = "Corner", name = true, health = true, distance = true, tracers = false, snaplines = false, skeleton = false, headDot = false, chams = false, teamCheck = false, crosshair = false, throttle = false, boxColor = "accent", nameColor = "white", boxThickness = 2, tracerColor = "accent", healthBarWidth = 4 },
+	Aimbot = { enabled = false, fov = 100, smooth = 0.2, showFOV = false, teamCheck = false, prediction = false, bindKey = "MouseButton2", aimPart = "Head" },
 	Player = { thirdPerson = false, thirdPersonDist = 12, fovChanger = false, fovValue = 70, godmode = false },
 	Server = { antiAFK = false, fullbright = false },
 	Performance = { mode = false },
@@ -486,13 +486,13 @@ local function createESP()
 								local sw=boxH/2; local cs=math.max(sw*0.2,4)
 								local corners={{Vector2.new(hp.X-sw/2,hp.Y),Vector2.new(hp.X-sw/2+cs,hp.Y),Vector2.new(hp.X-sw/2,hp.Y+cs)},{Vector2.new(hp.X+sw/2,hp.Y),Vector2.new(hp.X+sw/2-cs,hp.Y),Vector2.new(hp.X+sw/2,hp.Y+cs)},{Vector2.new(hp.X-sw/2,hp.Y+boxH),Vector2.new(hp.X-sw/2+cs,hp.Y+boxH),Vector2.new(hp.X-sw/2,hp.Y+boxH-cs)},{Vector2.new(hp.X+sw/2,hp.Y+boxH),Vector2.new(hp.X+sw/2-cs,hp.Y+boxH),Vector2.new(hp.X+sw/2,hp.Y+boxH-cs)}}
 								for _,c in ipairs(corners) do
-									local ln=safeDrawing("Line"); if ln then ln.Visible=true; ln.Color=getESPColor("boxColor"); ln.Thickness=2; ln.From=c[1]; ln.To=c[2]; table.insert(espDrawings,ln) end
-									local ln2=safeDrawing("Line"); if ln2 then ln2.Visible=true; ln2.Color=getESPColor("boxColor"); ln2.Thickness=2; ln2.From=c[1]; ln2.To=c[3]; table.insert(espDrawings,ln2) end
+									local ln=safeDrawing("Line"); if ln then ln.Visible=true; ln.Color=getESPColor("boxColor"); ln.Thickness=cfg.ESP.boxThickness; ln.From=c[1]; ln.To=c[2]; table.insert(espDrawings,ln) end
+									local ln2=safeDrawing("Line"); if ln2 then ln2.Visible=true; ln2.Color=getESPColor("boxColor"); ln2.Thickness=cfg.ESP.boxThickness; ln2.From=c[1]; ln2.To=c[3]; table.insert(espDrawings,ln2) end
 								end
-							else local bx=safeDrawing("Square"); if bx then bx.Visible=true; bx.Color=getESPColor("boxColor"); bx.Thickness=1; bx.Filled=false; bx.Position=Vector2.new(hp.X-boxH/4+jitter(),hp.Y+jitter()); bx.Size=Vector2.new(boxH/2,boxH); table.insert(espDrawings,bx) end end
+							else local bx=safeDrawing("Square"); if bx then bx.Visible=true; bx.Color=getESPColor("boxColor"); bx.Thickness=cfg.ESP.boxThickness; bx.Filled=false; bx.Position=Vector2.new(hp.X-boxH/4+jitter(),hp.Y+jitter()); bx.Size=Vector2.new(boxH/2,boxH); table.insert(espDrawings,bx) end end
 						end
 						if cfg.ESP.name then local nm=safeDrawing("Text"); if nm then nm.Visible=true; nm.Color=getESPColor("nameColor"); nm.Center=true; nm.Outline=true; nm.Size=14; nm.Position=Vector2.new(hp.X+jitter(),hp.Y-12); nm.Text=p.Name; table.insert(espDrawings,nm) end end
-						if cfg.ESP.health then local hm=ch.Humanoid; if hm.MaxHealth>0 then local hpPct=hm.Health/hm.MaxHealth; local hbBg=safeDrawing("Square"); if hbBg then hbBg.Filled=true; hbBg.Position=Vector2.new(hp.X-boxH/2-6,hp.Y); hbBg.Size=Vector2.new(3,boxH); hbBg.Color=Color3.fromRGB(0,0,0); table.insert(espDrawings,hbBg) end; local hb=safeDrawing("Square"); if hb then hb.Filled=true; hb.Position=Vector2.new(hp.X-boxH/2-6,hp.Y+boxH*(1-hpPct)); hb.Size=Vector2.new(3,boxH*hpPct); hb.Color=Color3.fromRGB(255*(1-hpPct),255*hpPct,0); table.insert(espDrawings,hb) end end end
+						if cfg.ESP.health then local hm=ch.Humanoid; if hm.MaxHealth>0 then local hpPct=hm.Health/hm.MaxHealth; local hbBg=safeDrawing("Square"); if hbBg then hbBg.Filled=true; hbBg.Position=Vector2.new(hp.X-boxH/2-cfg.ESP.healthBarWidth-2,hp.Y); hbBg.Size=Vector2.new(cfg.ESP.healthBarWidth,boxH); hbBg.Color=Color3.fromRGB(0,0,0); table.insert(espDrawings,hbBg) end; local hb=safeDrawing("Square"); if hb then hb.Filled=true; hb.Position=Vector2.new(hp.X-boxH/2-cfg.ESP.healthBarWidth-2,hp.Y+boxH*(1-hpPct)); hb.Size=Vector2.new(cfg.ESP.healthBarWidth,boxH*hpPct); hb.Color=Color3.fromRGB(255*(1-hpPct),255*hpPct,0); table.insert(espDrawings,hb) end end end
 						if cfg.ESP.distance then local dd=safeDrawing("Text"); if dd then dd.Visible=true; dd.Color=theme.textDim; dd.Center=true; dd.Size=12; local dist=myRoot and math.floor((myRoot.Position-ch.HumanoidRootPart.Position).Magnitude) or 0; dd.Position=Vector2.new(hp.X,hp.Y+boxH+4); dd.Text=dist.."m"; table.insert(espDrawings,dd) end end
 						if cfg.ESP.tracers then local tr=safeDrawing("Line"); if tr then tr.Visible=true; tr.Color=theme.accent; tr.Thickness=1; local sm=myRoot and Camera:WorldToViewportPoint(myRoot.Position); local st=Camera:WorldToViewportPoint(ch.HumanoidRootPart.Position); if sm and sm.Z>0 and st.Z>0 then tr.From=Vector2.new(sm.X,sm.Y); tr.To=Vector2.new(st.X,st.Y) end; table.insert(espDrawings,tr) end end
 						if cfg.ESP.snaplines then local sl=safeDrawing("Line"); if sl then sl.Visible=true; sl.Color=theme.accent; sl.Thickness=1; sl.Transparency=0.5; local bot=Camera:WorldToViewportPoint(ch.HumanoidRootPart.Position); sl.From=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y); sl.To=Vector2.new(bot.X+jitter(),bot.Y+jitter()); table.insert(espDrawings,sl) end end
@@ -575,7 +575,7 @@ local function startAimbot()
 					if cfg.Aimbot.teamCheck and p.Team==myTeam then continue end
 					local ch=p.Character
 					if ch and ch:FindFirstChild("Head") and ch:FindFirstChild("Humanoid") and ch.Humanoid.Health>0 then
-						local targetPos=ch.Head.Position
+						local targetPos=ch:FindFirstChild(cfg.Aimbot.aimPart) and ch[cfg.Aimbot.aimPart].Position or ch.Head.Position
 						-- Prediction: hedefin hızına göre öngörü
 						if cfg.Aimbot.prediction then
 							local hrp=ch:FindFirstChild("HumanoidRootPart")
@@ -827,9 +827,12 @@ do
 	createDropdown(vf,"Name Color",{"white","red","green","blue","yellow","purple","cyan","pink","orange"},cfg.ESP,"nameColor",function() createESP() end)
 	createColorPicker(vf,"Custom Box RGB",cfg.ESP,"customBoxColor",function() createESP() end)
 	createColorPicker(vf,"Custom Name RGB",cfg.ESP,"customNameColor",function() createESP() end)
+	createSlider(vf,"Box Thickness",cfg.ESP,"boxThickness",1,5,function() createESP() end)
+	createSlider(vf,"Health Bar Width",cfg.ESP,"healthBarWidth",2,8,function() createESP() end)
 
 	-- AIMBOT SETTINGS
 	createDropdown(cf,"Bind Key",{"MouseButton2","MouseButton3","E","Q","LeftShift","LeftControl"},cfg.Aimbot,"bindKey",function() end)
+	createDropdown(cf,"Aim Part",{"Head","Torso","HumanoidRootPart"},cfg.Aimbot,"aimPart",function() end)
 	createSlider(pf,"Third Person Dist",cfg.Player,"thirdPersonDist",5,30,function(val) pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") and cfg.Player.thirdPerson then ch.Humanoid.CameraDistanceOffset=val end end) end)
 	createSlider(pf,"FOV Value",cfg.Player,"fovValue",50,120,function(val) if cfg.Player.fovChanger then Camera.FieldOfView=val end end)
 
@@ -838,7 +841,7 @@ do
 	-- Komut listesi
 	local cmdHelp=Instance.new("TextLabel")
 	cmdHelp.Size=UDim2.new(1,-10,0,60); cmdHelp.BackgroundColor3=theme.inputBg; cmdHelp.TextColor3=theme.textDim
-	cmdHelp.Text="Komutlar: fly|noclip|esp|aimbot|god|speed <n>|jump <n>|rejoin|bright|spin|3rd|gravity <n>|help"
+	cmdHelp.Text="Komutlar: fly|noclip|esp|aimbot|god|speed <n>|jump <n>|rejoin|bright|spin|3rd|gravity <n>|tp <oyuncu>|ghost|reset|crosshair|throttle|aimpart <head/torso>|help"
 	cmdHelp.Font=Enum.Font.Code; cmdHelp.TextSize=10; cmdHelp.TextWrapped=true; cmdHelp.TextYAlignment=Enum.TextYAlignment.Top; cmdHelp.Parent=ef
 	local cmdBox=Instance.new("TextBox")
 	cmdBox.Size=UDim2.new(1,-10,0,30); cmdBox.Position=UDim2.new(0,0,0,65); cmdBox.BackgroundColor3=theme.inputBg; cmdBox.TextColor3=theme.text
@@ -864,6 +867,13 @@ do
 		elseif txt=="bright" then cfg.Server.fullbright=not cfg.Server.fullbright; enableFullbright(cfg.Server.fullbright); notify("Fullbright: "..tostring(cfg.Server.fullbright),1)
 		elseif txt=="spin" then cfg.Movement.spinBot=not cfg.Movement.spinBot; if cfg.Movement.spinBot then spinAngle=0; spinConn=RunService.Heartbeat:Connect(function(dt) spinAngle=spinAngle+dt*360; local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("HumanoidRootPart") then ch.HumanoidRootPart.CFrame=CFrame.new(ch.HumanoidRootPart.Position)*CFrame.Angles(0,math.rad(spinAngle),0) end end); regConn(spinConn) else if spinConn then spinConn:Disconnect(); spinConn=nil end end; notify("Spin: "..tostring(cfg.Movement.spinBot),1)
 		elseif txt=="3rd" then cfg.Player.thirdPerson=not cfg.Player.thirdPerson; pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.CameraDistanceOffset=cfg.Player.thirdPerson and cfg.Player.thirdPersonDist or 0 end end); notify("3rd Person: "..tostring(cfg.Player.thirdPerson),1)
+		elseif txt:sub(1,3)=="tp " then local target=Players:FindFirstChild(txt:sub(4)); if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame=target.Character.HumanoidRootPart.CFrame+Vector3.new(3,0,0); notify("TP: "..target.Name,1) end
+		elseif txt=="ghost" then cfg.Player.invisibility=not cfg.Player.invisibility; pcall(function() local ch=LocalPlayer.Character; if ch then for _,p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") and p.Transparency<1 then p.Transparency=cfg.Player.invisibility and 0.9 or 0 end end end end); notify("Ghost: "..tostring(cfg.Player.invisibility),1)
+		elseif txt=="reset" then disableAllFeatures(); notify("Tüm özellikler sıfırlandı",1)
+		elseif txt:sub(1,8)=="espcolor" then local c=txt:sub(9):gsub("%s+",""); if colorMap[c] then cfg.ESP.boxColor=c; createESP(); notify("ESP Color: "..c,1) end
+		elseif txt=="crosshair" then cfg.ESP.crosshair=not cfg.ESP.crosshair; notify("Crosshair: "..tostring(cfg.ESP.crosshair),1)
+		elseif txt=="throttle" then cfg.ESP.throttle=not cfg.ESP.throttle; notify("Throttle: "..tostring(cfg.ESP.throttle),1)
+		elseif txt:sub(1,7)=="aimpart" then local p=txt:sub(8):gsub("%s+",""); if p=="head" or p=="torso" or p=="humanoidrootpart" then cfg.Aimbot.aimPart=p; notify("AimPart: "..p,1) end
 		end
 		cmdBox.Text=""
 	end)
