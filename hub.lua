@@ -278,7 +278,7 @@ sideLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() si
 local contentContainer = Instance.new("ScrollingFrame"); contentContainer.Size=UDim2.new(1,-130,1,-30); contentContainer.Position=UDim2.new(0,130,0,30); contentContainer.BackgroundColor3=theme.panelBg; contentContainer.BorderSizePixel=0; contentContainer.ScrollBarThickness=3; contentContainer.ScrollBarImageColor3=theme.accent; contentContainer.CanvasSize=UDim2.new(0,0,0,0); contentContainer.ClipsDescendants=true; contentContainer.Parent=mainFrame
 
 -- ===== Categories =====
-local categories = {"Movement","Visual","Combat","Player","Server","Extra"}
+local categories = {"Movement","Visual","Combat","Player","Players","Server","Extra"}
 local categoryButtons, categoryFrames, selectedCategory = {}, {}, nil
 
 local function switchCategory(name)
@@ -624,6 +624,40 @@ do
 	createToggle(pf,"FOV Changer",cfg.Player,"fovChanger",function(on) Camera.FieldOfView=on and 90 or 70 end)
 	createToggle(pf,"Godmode (safe)",cfg.Player,"godmode",function(on) applyGodmode(on); notify(on and "Godmode açıldı" or "Godmode kapatıldı",1) end)
 
+	-- PLAYERS (oyuncu listesi)
+	local plf=categoryFrames["Players"]
+	local playerScroll=Instance.new("ScrollingFrame")
+	playerScroll.Size=UDim2.new(1,-10,1,-10); playerScroll.BackgroundColor3=theme.inputBg; playerScroll.BorderSizePixel=0; playerScroll.ScrollBarThickness=3; playerScroll.CanvasSize=UDim2.new(0,0,0,0); playerScroll.Parent=plf
+	local playerLayout=Instance.new("UIListLayout"); playerLayout.Parent=playerScroll; playerLayout.SortOrder=Enum.SortOrder.LayoutOrder; playerLayout.Padding=UDim.new(0,2)
+	local function refreshPlayerList()
+		for _,c in ipairs(playerScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+		local i=0
+		for _,p in ipairs(Players:GetPlayers()) do
+			i=i+1
+			local pf2=Instance.new("Frame"); pf2.Size=UDim2.new(1,-6,0,28); pf2.BackgroundColor3=theme.panelBg; pf2.BorderSizePixel=0; pf2.LayoutOrder=i; pf2.Parent=playerScroll
+			local name=Instance.new("TextLabel"); name.Size=UDim2.new(0.4,0,1,0); name.BackgroundTransparency=1; name.TextColor3=p==LocalPlayer and theme.accent or theme.text; name.Text=p.Name; name.Font=Enum.Font.Gotham; name.TextSize=12; name.TextXAlignment=Enum.TextXAlignment.Left; name.Parent=pf2
+			local info=Instance.new("TextLabel"); info.Size=UDim2.new(0.6,0,1,0); info.Position=UDim2.new(0.4,0,0,0); info.BackgroundTransparency=1; info.TextColor3=theme.textDim; info.Font=Enum.Font.Code; info.TextSize=10; info.TextXAlignment=Enum.TextXAlignment.Right; info.Parent=pf2
+			local function updateInfo()
+				if not p.Parent then info.Text="_left"; return end
+				local ch=p.Character
+				if ch and ch:FindFirstChild("Humanoid") and ch:FindFirstChild("HumanoidRootPart") then
+					local myRoot=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+					local dist=myRoot and math.floor((myRoot.Position-ch.HumanoidRootPart.Position).Magnitude) or "?"
+					local hp=math.floor(ch.Humanoid.Health)
+					info.Text=hp.."HP | "..dist.."m"
+				else info.Text="no char" end
+			end
+			updateInfo()
+			task.spawn(function() while p.Parent and not guiDestroyed do updateInfo(); task.wait(1) end end)
+		end
+		playerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() playerScroll.CanvasSize=UDim2.new(0,0,0,playerLayout.AbsoluteContentSize.Y+10) end)
+	end
+	refreshPlayerList()
+	createButton(plf,"Refresh List",function() refreshPlayerList() end)
+	-- Auto-refresh on player join/leave
+	Players.PlayerAdded:Connect(function() task.wait(1); pcall(refreshPlayerList) end)
+	Players.PlayerRemoving:Connect(function() task.defer(function() pcall(refreshPlayerList) end) end)
+
 	-- SERVER
 	local sf=categoryFrames["Server"]
 	createButton(sf,"Rejoin",function() TeleportService:Teleport(game.PlaceId,LocalPlayer) end)
@@ -633,6 +667,30 @@ do
 
 	-- EXTRA
 	local ef=categoryFrames["Extra"]
+	-- Theme switching
+	local themes = {
+		dark = { bg=Color3.fromRGB(12,12,18), panelBg=Color3.fromRGB(18,18,25), sideBg=Color3.fromRGB(10,10,15), titleBg=Color3.fromRGB(6,6,10), accent=Color3.fromRGB(0,180,255), text=Color3.fromRGB(235,235,240) },
+		blue = { bg=Color3.fromRGB(10,15,25), panelBg=Color3.fromRGB(15,20,35), sideBg=Color3.fromRGB(8,12,22), titleBg=Color3.fromRGB(5,8,15), accent=Color3.fromRGB(0,150,255), text=Color3.fromRGB(220,230,255) },
+		green = { bg=Color3.fromRGB(10,18,12), panelBg=Color3.fromRGB(15,25,18), sideBg=Color3.fromRGB(8,14,10), titleBg=Color3.fromRGB(5,10,6), accent=Color3.fromRGB(0,255,100), text=Color3.fromRGB(220,255,230) },
+		purple = { bg=Color3.fromRGB(18,10,25), panelBg=Color3.fromRGB(25,15,35), sideBg=Color3.fromRGB(14,8,20), titleBg=Color3.fromRGB(10,5,15), accent=Color3.fromRGB(180,0,255), text=Color3.fromRGB(240,220,255) },
+		red = { bg=Color3.fromRGB(20,10,10), panelBg=Color3.fromRGB(30,15,15), sideBg=Color3.fromRGB(15,8,8), titleBg=Color3.fromRGB(10,5,5), accent=Color3.fromRGB(255,60,60), text=Color3.fromRGB(255,220,220) },
+	}
+	createDropdown(ef,"Theme",{"dark","blue","green","purple","red"},{currentTheme="dark"},"currentTheme",function(name)
+		local t=themes[name]
+		if t then
+			for k,v in pairs(t) do theme[k]=v end
+			-- GUI renklerini güncelle
+			pcall(function()
+				mainFrame.BackgroundColor3=theme.bg
+				sidePanel.BackgroundColor3=theme.sideBg
+				contentContainer.BackgroundColor3=theme.panelBg
+				titleBar.BackgroundColor3=theme.titleBg
+				title.TextColor3=theme.accent
+				watermark.TextColor3=theme.accent
+			end)
+			notify("Theme: "..name,1)
+		end
+	end)
 	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json); notify("Config kopyalandı",1) end end)
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end; notify("Config yüklendi",1) end end end)
 	createToggle(ef,"Performance Mode",cfg.Performance,"mode",function(on) pcall(function() local s=UserSettings():GetService("UserGameSettings"); s.RenderingQualityLevel=on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21 end) end)
