@@ -291,6 +291,9 @@ for i, cat in ipairs(categories) do
 	btn.LayoutOrder = i
 	btn.Parent = sidePanel
 	table.insert(categoryButtons, {button = btn, category = cat})
+	btn.MouseButton1Click:Connect(function()
+		switchCategory(cat)
+	end)
 
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -20, 0, 0)
@@ -384,7 +387,7 @@ end
 
 -- ESP
 local espDrawings = {}
-local espRenderStepName = HttpService:GenerateGUID(false)
+local espRenderStepName = Services.HttpService:GenerateGUID(false)
 local function removeESP()
 	if Services.RunService:IsRunning() then
 		pcall(function() Services.RunService:UnbindFromRenderStep(espRenderStepName) end)
@@ -474,7 +477,7 @@ local function applyChams()
 			local char = player.Character
 			if char then
 				local hl = Instance.new("Highlight")
-				hl.Name = HttpService:GenerateGUID(false)
+				hl.Name = Services.HttpService:GenerateGUID(false)
 				hl.FillColor = Color3.fromRGB(255,0,0)
 				hl.OutlineColor = Color3.fromRGB(255,0,0)
 				hl.FillTransparency = 0.5
@@ -488,7 +491,7 @@ end
 
 -- Aimbot
 local aimbotActive = false
-local aimbotRenderStep = HttpService:GenerateGUID(false)
+local aimbotRenderStep = Services.HttpService:GenerateGUID(false)
 local function startAimbot()
 	if aimbotActive then return end
 	aimbotActive = true
