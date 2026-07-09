@@ -6,7 +6,6 @@ local Services = {
 	RunService = game:GetService("RunService"),
 	UserInputService = game:GetService("UserInputService"),
 	TeleportService = game:GetService("TeleportService"),
-	HttpService = game:GetService("HttpService"),
 	Lighting = game:GetService("Lighting"),
 }
 local LocalPlayer = Services.Players.LocalPlayer
@@ -16,6 +15,12 @@ local function safeCall(func, ...)
 	local success, result = pcall(func, ...)
 	if success then return result end
 	return nil
+end
+
+-- HttpService may not be available in all executors
+local HttpService = safeCall(function() return game:GetService("HttpService") end)
+local function randomName()
+	return string.char(97+math.random(25))..tostring(math.random(100000,999999))
 end
 
 local function getHui()
@@ -264,6 +269,7 @@ contentContainer.BackgroundColor3 = Color3.fromRGB(25,25,25)
 contentContainer.BorderSizePixel = 0
 contentContainer.ScrollBarThickness = 4
 contentContainer.CanvasSize = UDim2.new(0,0,0,0)
+contentContainer.ClipsDescendants = true
 contentContainer.Parent = mainFrame
 
 local contentLayout = Instance.new("UIListLayout")
@@ -297,6 +303,7 @@ for i, cat in ipairs(categories) do
 
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -20, 0, 0)
+	frame.AutomaticSize = Enum.AutomaticSize.Y
 	frame.BackgroundTransparency = 1
 	frame.Visible = false
 	frame.LayoutOrder = i
@@ -337,7 +344,7 @@ local function registerConn(conn)
 end
 local function cleanFeatureConns()
 	for _, c in ipairs(activeConnections) do
-		if typeof(c) == "RBXScriptConnection" then pcall(function() c:Disconnect() end) end
+		if type(c) == "userdata" and c.Disconnect then pcall(function() c:Disconnect() end) end
 	end
 	activeConnections = {}
 end
@@ -387,7 +394,7 @@ end
 
 -- ESP
 local espDrawings = {}
-local espRenderStepName = Services.HttpService:GenerateGUID(false)
+local espRenderStepName = randomName()
 local function removeESP()
 	if Services.RunService:IsRunning() then
 		pcall(function() Services.RunService:UnbindFromRenderStep(espRenderStepName) end)
@@ -477,7 +484,7 @@ local function applyChams()
 			local char = player.Character
 			if char then
 				local hl = Instance.new("Highlight")
-				hl.Name = Services.HttpService:GenerateGUID(false)
+				hl.Name = randomName()
 				hl.FillColor = Color3.fromRGB(255,0,0)
 				hl.OutlineColor = Color3.fromRGB(255,0,0)
 				hl.FillTransparency = 0.5
@@ -491,7 +498,7 @@ end
 
 -- Aimbot
 local aimbotActive = false
-local aimbotRenderStep = Services.HttpService:GenerateGUID(false)
+local aimbotRenderStep = randomName()
 local function startAimbot()
 	if aimbotActive then return end
 	aimbotActive = true
@@ -617,10 +624,11 @@ local function rejoin()
 	Services.TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end
 local function serverHop()
+	if not HttpService then return end
 	local servers = {}
 	local function fetch(cursor)
 		local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?limit=100"..(cursor and "&cursor="..cursor or "")
-		local success, response = pcall(function() return Services.HttpService:JSONDecode(game:HttpGet(url)) end)
+		local success, response = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
 		if success and response and response.data then
 			for _, s in ipairs(response.data) do
 				if s.playing < s.maxPlayers then table.insert(servers, s.id) end
