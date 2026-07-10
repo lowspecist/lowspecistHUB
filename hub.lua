@@ -31,10 +31,7 @@ local function clean()
 end
 
 -- Safe GUI parent
-local function getGuiParent()
-	local ok, hui = pcall(gethui)
-	return ok and hui or game:GetService("CoreGui")
-end
+local guiParent = game:GetService("CoreGui")
 
 -- Random name
 local function rndName()
@@ -61,7 +58,7 @@ local function playClick() playSound("rbxassetid://130791370", 0.15, 1.5) end
 -- Notification
 local notifGui = Instance.new("ScreenGui")
 notifGui.Name = rndName()
-notifGui.Parent = getGuiParent()
+notifGui.Parent = guiParent
 notifGui.ResetOnSpawn = false
 notifGui.DisplayOrder = 998
 
@@ -110,7 +107,7 @@ local themes = {
 -- GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = rndName()
-gui.Parent = getGuiParent()
+gui.Parent = guiParent
 gui.ResetOnSpawn = false
 gui.Enabled = true
 
