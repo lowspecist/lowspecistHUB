@@ -732,7 +732,7 @@ do
 	local ef=categoryFrames["Extra"]
 	createDropdown(ef,"Theme",{"dark","blue","green","purple","red"},cfg,"currentTheme",function(name)
 		local themes={dark={bg=Color3.fromRGB(12,12,18),side=Color3.fromRGB(10,10,15),title=Color3.fromRGB(6,6,10),accent=Color3.fromRGB(0,180,255)},blue={bg=Color3.fromRGB(15,20,35),side=Color3.fromRGB(10,15,25),title=Color3.fromRGB(8,12,20),accent=Color3.fromRGB(0,150,255)},green={bg=Color3.fromRGB(15,25,18),side=Color3.fromRGB(10,18,12),title=Color3.fromRGB(8,14,10),accent=Color3.fromRGB(0,255,100)},purple={bg=Color3.fromRGB(25,15,35),side=Color3.fromRGB(18,10,25),title=Color3.fromRGB(14,8,20),accent=Color3.fromRGB(180,0,255)},red={bg=Color3.fromRGB(30,15,15),side=Color3.fromRGB(22,10,10),title=Color3.fromRGB(18,8,8),accent=Color3.fromRGB(255,60,60)}}
-		local t=themes[name]; if t then pcall(function() mainFrame.BackgroundColor3=t.bg; sidePanel.BackgroundColor3=t.side; titleBar.BackgroundColor3=t.title; titleText.TextColor3=t.accent; watermark.TextColor3=t.accent end) end
+		local t=themes[name]; if t then pcall(function() mainFrame.BackgroundColor3=t.bg; sidePanel.BackgroundColor3=t.side; titleBar.BackgroundColor3=t.title; title.TextColor3=t.accent; watermark.TextColor3=t.accent end) end
 	end)
 	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json) end end)
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end end end end)
