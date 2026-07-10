@@ -399,7 +399,7 @@ contentContainer.ClipsDescendants = true
 contentContainer.Parent = mainFrame
 
 -- ===== Categories =====
-local categories = {"Movement", "Visual", "Combat", "Player", "Server", "Extra"}
+local categories = {"Movement", "Visual", "Combat", "Player", "Gamepass", "Server", "Extra"}
 local categoryButtons = {}
 local categoryFrames = {}
 local selectedCategory = nil
@@ -719,6 +719,77 @@ do
 	local pf=categoryFrames["Player"]
 	createToggle(pf,"Third Person",cfg.Player,"thirdPerson",function(on) pcall(function() local ch=LocalPlayer.Character; if ch and ch:FindFirstChild("Humanoid") then ch.Humanoid.CameraDistanceOffset=on and 12 or 0 end end) end)
 	createToggle(pf,"FOV Changer",cfg.Player,"fovChanger",function(on) Camera.FieldOfView=on and 90 or 70 end)
+
+	-- GAMEPASS
+	local gp=categoryFrames["Gamepass"]
+	createButton(gp,"Method 1: Copy Tools",function()
+		pcall(function()
+			for _,c in pairs(game.Lighting:GetChildren()) do
+				if c:IsA("Tool") or c:IsA("HopperBin") then
+					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+				end
+			end
+			for _,c in pairs(game.ReplicatedStorage:GetChildren()) do
+				if c:IsA("Tool") or c:IsA("HopperBin") then
+					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+				end
+			end
+		end)
+	end)
+	createButton(gp,"Method 2: Gamepass Spoof",function()
+		pcall(function()
+			local mt = getrawmetatable(game)
+			local old = mt.__namecall
+			local readonly = setreadonly or make_writeable
+			local MPS = game:GetService("MarketplaceService")
+			readonly(mt, false)
+			mt.__namecall = function(self, ...)
+				local args = {...}
+				local method = table.remove(args)
+				if self == MPS and method:find("UserOwnsGamePassAsync") then
+					return true and 1
+				end
+				return old(self, ...)
+			end
+		end)
+	end)
+	createButton(gp,"Method 3: Spoof Creator ID",function()
+		pcall(function()
+			if game.CreatorType == Enum.CreatorType.User then
+				LocalPlayer.UserId = game.CreatorId
+			elseif game.CreatorType == Enum.CreatorType.Group then
+				LocalPlayer.UserId = game:GetService("GroupService"):GetGroupInfoAsync(game.CreatorId).Owner.Id
+			end
+		end)
+	end)
+	createButton(gp,"Method 4: Destroy VIP Doors",function()
+		pcall(function()
+			for _,v in pairs(workspace:GetDescendants()) do
+				if v:IsA("Part") and (v.Name == "VIP Door" or v.Name == "Gamepass Door" or v.Name == "GP Door" or v.Name == "Gamepass") then
+					v:Destroy()
+				end
+			end
+		end)
+	end)
+	createButton(gp,"Method 5: Copy Storage Tools",function()
+		pcall(function()
+			for _,c in pairs(game.ServerStorage:GetChildren()) do
+				if c:IsA("Tool") or c:IsA("HopperBin") then
+					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+				end
+			end
+			for _,c in pairs(game.Lighting:GetChildren()) do
+				if c:IsA("Tool") or c:IsA("HopperBin") then
+					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+				end
+			end
+			for _,c in pairs(game.ReplicatedStorage:GetChildren()) do
+				if c:IsA("Tool") or c:IsA("HopperBin") then
+					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
+				end
+			end
+		end)
+	end)
 
 	-- SERVER
 	local sf=categoryFrames["Server"]
