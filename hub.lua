@@ -714,6 +714,9 @@ do
 		if on and aimbotActive then fovCircle=safeDrawing("Circle"); if fovCircle then fovCircle.Visible=true; fovCircle.Color=theme.accent; fovCircle.Thickness=1; fovCircle.Filled=false; fovCircle.Radius=cfg.Aimbot.fov; fovCircle.Position=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2) end
 		elseif fovCircle then pcall(function() fovCircle:Remove() end); fovCircle=nil end
 	end)
+	createToggle(cf,"Team Check",cfg.Aimbot,"teamCheck",function() end)
+	createToggle(cf,"Prediction",cfg.Aimbot,"prediction",function() end)
+	createDropdown(cf,"Aim Part",{"Head","Torso","HumanoidRootPart"},cfg.Aimbot,"aimPart",function() end)
 
 	-- PLAYER
 	local pf=categoryFrames["Player"]
@@ -727,6 +730,10 @@ do
 
 	-- EXTRA
 	local ef=categoryFrames["Extra"]
+	createDropdown(ef,"Theme",{"dark","blue","green","purple","red"},cfg,"currentTheme",function(name)
+		local themes={dark={bg=Color3.fromRGB(12,12,18),side=Color3.fromRGB(10,10,15),title=Color3.fromRGB(6,6,10),accent=Color3.fromRGB(0,180,255)},blue={bg=Color3.fromRGB(15,20,35),side=Color3.fromRGB(10,15,25),title=Color3.fromRGB(8,12,20),accent=Color3.fromRGB(0,150,255)},green={bg=Color3.fromRGB(15,25,18),side=Color3.fromRGB(10,18,12),title=Color3.fromRGB(8,14,10),accent=Color3.fromRGB(0,255,100)},purple={bg=Color3.fromRGB(25,15,35),side=Color3.fromRGB(18,10,25),title=Color3.fromRGB(14,8,20),accent=Color3.fromRGB(180,0,255)},red={bg=Color3.fromRGB(30,15,15),side=Color3.fromRGB(22,10,10),title=Color3.fromRGB(18,8,8),accent=Color3.fromRGB(255,60,60)}}
+		local t=themes[name]; if t then pcall(function() mainFrame.BackgroundColor3=t.bg; sidePanel.BackgroundColor3=t.side; titleBar.BackgroundColor3=t.title; titleText.TextColor3=t.accent; watermark.TextColor3=t.accent end) end
+	end)
 	createButton(ef,"Export Config",function() local json=HttpService:JSONEncode(cfg); if setclipboard then setclipboard(json) end end)
 	createButton(ef,"Import Config",function() if getclipboard then local ok,data=pcall(function() return HttpService:JSONDecode(getclipboard()) end); if ok and data then for k,v in pairs(data) do if type(v)=="table" and type(cfg[k])=="table" then for sk,sv in pairs(v) do cfg[k][sk]=sv end else cfg[k]=v end end end end end)
 	createToggle(ef,"Performance Mode",cfg.Performance,"mode",function(on) pcall(function() local s=UserSettings():GetService("UserGameSettings"); s.RenderingQualityLevel=on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Level21 end) end)
