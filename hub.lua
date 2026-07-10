@@ -345,13 +345,13 @@ local function createESP()
 			local myTeam = LocalPlayer.Team; local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 			for _, p in ipairs(Players:GetPlayers()) do
 				if p ~= LocalPlayer then
-					if cfg.ESP.teamCheck and p.Team == myTeam then goto cont end
+					if cfg.ESP.teamCheck and p.Team == myTeam then do end end
 					local ch = p.Character
 					if ch and ch:FindFirstChild("Head") and ch:FindFirstChild("HumanoidRootPart") and ch:FindFirstChild("Humanoid") then
-						if ch.Humanoid.Health <= 0 then goto cont end
-						local hp, onScr = Camera:WorldToViewportPoint(ch.Head.Position); if not onScr then goto cont end
+						if ch.Humanoid.Health <= 0 then do end end
+						local hp, onScr = Camera:WorldToViewportPoint(ch.Head.Position); if not onScr then do end end
 						local fp = Camera:WorldToViewportPoint((ch.HumanoidRootPart.CFrame*CFrame.new(0,-3,0)).Position)
-						local boxH = math.abs(fp.Y-hp.Y); if boxH <= 0 then goto cont end
+						local boxH = math.abs(fp.Y-hp.Y); if boxH <= 0 then do end end
 						local jx, jy = jitter(), jitter()
 						if cfg.ESP.box then
 							if cfg.ESP.boxStyle == "3D" then
@@ -440,7 +440,7 @@ local function startAimbot()
 			local sc=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
 			for _,p in ipairs(Players:GetPlayers()) do
 				if p~=LocalPlayer then
-					if cfg.Aimbot.teamCheck and p.Team==myTeam then goto cont end
+					if cfg.Aimbot.teamCheck and p.Team==myTeam then do end end
 					local ch=p.Character
 					if ch and ch:FindFirstChild("Head") and ch:FindFirstChild("Humanoid") and ch.Humanoid.Health>0 then
 						local targetPos=ch:FindFirstChild(cfg.Aimbot.aimPart) and ch[cfg.Aimbot.aimPart].Position or ch.Head.Position
