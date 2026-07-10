@@ -722,21 +722,7 @@ do
 
 	-- GAMEPASS
 	local gp=categoryFrames["Gamepass"]
-	createButton(gp,"Method 1: Copy Tools",function()
-		pcall(function()
-			for _,c in pairs(game.Lighting:GetChildren()) do
-				if c:IsA("Tool") or c:IsA("HopperBin") then
-					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-				end
-			end
-			for _,c in pairs(game.ReplicatedStorage:GetChildren()) do
-				if c:IsA("Tool") or c:IsA("HopperBin") then
-					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-				end
-			end
-		end)
-	end)
-	createButton(gp,"Method 2: Gamepass Spoof",function()
+	createButton(gp,"Spoof Gamepass",function()
 		pcall(function()
 			local mt = getrawmetatable(game)
 			local old = mt.__namecall
@@ -747,46 +733,66 @@ do
 				local args = {...}
 				local method = table.remove(args)
 				if self == MPS and method:find("UserOwnsGamePassAsync") then
-					return true and 1
+					return true
 				end
 				return old(self, ...)
 			end
 		end)
 	end)
-	createButton(gp,"Method 3: Spoof Creator ID",function()
+	createButton(gp,"Spoof Premium",function()
+		pcall(function()
+			local mt = getrawmetatable(game)
+			local old = mt.__namecall
+			local readonly = setreadonly or make_writeable
+			local MPS = game:GetService("MarketplaceService")
+			readonly(mt, false)
+			mt.__namecall = function(self, ...)
+				local args = {...}
+				local method = table.remove(args)
+				if self == MPS and method:find("UserOwnsSubscriptionAsync") then
+					return true
+				end
+				return old(self, ...)
+			end
+		end)
+	end)
+	createButton(gp,"Bypass VIP Doors",function()
+		pcall(function()
+			for _,v in pairs(workspace:GetDescendants()) do
+				if v:IsA("BasePart") then
+					local n = v.Name:lower()
+					if n:find("vip") or n:find("gamepass") or n:find("premium") or n:find("locked") then
+						v.CanCollide = false
+						v.Transparency = 0.8
+					end
+				end
+			end
+		end)
+	end)
+	createButton(gp,"Copy All Tools",function()
+		pcall(function()
+			local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+			if not bp then return end
+			local function scan(parent)
+				for _,c in pairs(parent:GetChildren()) do
+					if c:IsA("Tool") or c:IsA("HopperBin") then
+						c:Clone().Parent = bp
+					end
+				end
+			end
+			scan(game.ReplicatedStorage)
+			scan(game.Lighting)
+			scan(game.ServerStorage)
+			scan(workspace)
+		end)
+	end)
+	createButton(gp,"Spoof UserId",function()
 		pcall(function()
 			if game.CreatorType == Enum.CreatorType.User then
 				LocalPlayer.UserId = game.CreatorId
 			elseif game.CreatorType == Enum.CreatorType.Group then
-				LocalPlayer.UserId = game:GetService("GroupService"):GetGroupInfoAsync(game.CreatorId).Owner.Id
-			end
-		end)
-	end)
-	createButton(gp,"Method 4: Destroy VIP Doors",function()
-		pcall(function()
-			for _,v in pairs(workspace:GetDescendants()) do
-				if v:IsA("Part") and (v.Name == "VIP Door" or v.Name == "Gamepass Door" or v.Name == "GP Door" or v.Name == "Gamepass") then
-					v:Destroy()
-				end
-			end
-		end)
-	end)
-	createButton(gp,"Method 5: Copy Storage Tools",function()
-		pcall(function()
-			for _,c in pairs(game.ServerStorage:GetChildren()) do
-				if c:IsA("Tool") or c:IsA("HopperBin") then
-					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-				end
-			end
-			for _,c in pairs(game.Lighting:GetChildren()) do
-				if c:IsA("Tool") or c:IsA("HopperBin") then
-					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-				end
-			end
-			for _,c in pairs(game.ReplicatedStorage:GetChildren()) do
-				if c:IsA("Tool") or c:IsA("HopperBin") then
-					c:Clone().Parent = LocalPlayer:FindFirstChildOfClass("Backpack")
-				end
+				local info = game:GetService("GroupService"):GetGroupInfoAsync(game.CreatorId)
+				if info and info.Owner then LocalPlayer.UserId = info.Owner.Id end
 			end
 		end)
 	end)
